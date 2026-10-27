@@ -1,0 +1,16 @@
+# Demo online di StudyRAG: solo cio' che serve al server (niente finestra desktop, niente AI, niente calendari)
+streamlit>=1.50,<2
+pypdf>=5.0,<7
+python-docx>=1.1,<2
+python-pptx>=1.0,<2
+openpyxl>=3.1,<4
+fpdf2>=2.8,<3
+markdown>=3.5,<4
+pillow>=10
+python-dotenv>=1.0,<2
+python-dateutil>=2.8,<3
+requests>=2.31,<3
+cryptography>=42
+anthropic>=0.40,<1
+ollama>=0.5,<1
+google-auth-oauthlib>=1.2,<2
