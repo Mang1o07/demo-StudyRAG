@@ -1,0 +1,1515 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StudyRAG Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Lato:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Design system «Carta» di StudyRAG (views/theme.css + ui.py): carta e inchiostro di giorno, grafite di notte,
+   un solo accento terracotta. Layout: barra in alto a 5 voci, seconda riga per «Studia», colonna da 1180 px. */
+:root {
+  --bg:#F6F1E8; --surface:#FFFCF7; --surface-2:#EFE7DA; --line:#E2D7C6; --line-2:#CDBFAB; --edge:#8F806C;
+  --ink:#2B2621; --muted:#6F665B; --shadow:rgba(70,50,25,.06);
+  --accent:#A9492A; --on-accent:#FFFFFF; --accent-soft:#F5E3D8; --accent-line:#DDB3A0;
+  --ok:#4C7448; --ok-soft:#E6EEDF; --ok-line:#B9CDB1;
+  --warn:#8F570B; --warn-soft:#F6EAD3; --warn-line:#DFC290;
+  --danger:#B0392C; --danger-soft:#F6E0DC; --danger-line:#E0AFA8;
+  --blue:#4D6A8A; --overlay:rgba(43,38,33,.38);
+  --f-head:Fraunces, Georgia, "Times New Roman", serif;
+  --f-body:Lato, -apple-system, "Segoe UI", sans-serif;
+  --r:14px; --r-sm:10px; --ease:cubic-bezier(.25,.46,.45,.94);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#1B1A18; --surface:#282622; --surface-2:#312F2B; --line:#45413C; --line-2:#57524B; --edge:#857C70;
+  --ink:#EEE8DF; --muted:#ABA294; --shadow:rgba(0,0,0,0);
+  --accent:#E08A62; --on-accent:#1B1A18; --accent-soft:#3A2A22; --accent-line:#6E4634;
+  --ok:#9CC090; --ok-soft:#26301F; --ok-line:#435638; --warn:#E3AE5A; --warn-soft:#33291A; --warn-line:#5E4A26;
+  --danger:#EE8A7C; --danger-soft:#3A2320; --danger-line:#6A3A33; --blue:#93AECB; --overlay:rgba(0,0,0,.55);
+  color-scheme:dark; } }
+:root[data-theme="dark"] {
+  --bg:#1B1A18; --surface:#282622; --surface-2:#312F2B; --line:#45413C; --line-2:#57524B; --edge:#857C70;
+  --ink:#EEE8DF; --muted:#ABA294; --shadow:rgba(0,0,0,0);
+  --accent:#E08A62; --on-accent:#1B1A18; --accent-soft:#3A2A22; --accent-line:#6E4634;
+  --ok:#9CC090; --ok-soft:#26301F; --ok-line:#435638; --warn:#E3AE5A; --warn-soft:#33291A; --warn-line:#5E4A26;
+  --danger:#EE8A7C; --danger-soft:#3A2320; --danger-line:#6A3A33; --blue:#93AECB; --overlay:rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+*, *::before, *::after { box-sizing:border-box; }
+html, body { overflow-x:hidden; }
+body { background:var(--bg); color:var(--ink); font:16px/1.55 var(--f-body); -webkit-font-smoothing:antialiased; }
+::selection { background:var(--accent-soft); }
+button, input, select, textarea { font:inherit; color:inherit; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+h1, h2, h3, h4 { font-family:var(--f-head); font-weight:600; letter-spacing:-.01em; margin:0; text-wrap:balance; }
+p { margin:0; }
+.ico { width:18px; height:18px; flex:none; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.num { font-variant-numeric:tabular-nums; }
+
+/* ---------- demo strip ---------- */
+.demo-strip { background:var(--surface-2); border-bottom:1px solid var(--line); font-size:.86rem; }
+.demo-strip .in { max-width:1180px; margin:0 auto; padding-block:.45rem;
+  padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px));
+  display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+.demo-strip .tag { font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:.72rem; color:var(--accent);
+  border:1px solid var(--accent-line); background:var(--accent-soft); border-radius:99px; padding:.1rem .55rem; }
+.demo-strip .txt { color:var(--muted); flex:1 1 260px; min-width:0; }
+.demo-strip .seg button { padding:.2rem .7rem; min-height:0; font-size:.82rem; }
+
+/* ---------- shell ---------- */
+.wrap { max-width:1180px; margin:0 auto; padding-block:1rem 5rem;
+  padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); }
+.topbar { display:flex; align-items:center; gap:.75rem; padding:.25rem 0 .9rem; margin-bottom:1.1rem; border-bottom:1px solid var(--line); }
+.brand { display:flex; align-items:center; gap:.55rem; white-space:nowrap; }
+.brand .mark { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--accent);
+  color:var(--on-accent); font-family:var(--f-head); font-weight:600; font-size:1.05rem; }
+.brand .name { font-family:var(--f-head); font-weight:600; font-size:1.1rem; }
+.seg { display:flex; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:3px; gap:2px;
+  overflow-x:auto; scrollbar-width:none; max-width:100%; }
+.seg::-webkit-scrollbar { display:none; }
+.seg button { border:0; background:transparent; border-radius:9px; padding:.35rem .8rem; min-height:2.15rem; color:var(--muted);
+  font-weight:700; font-size:.86rem; display:flex; align-items:center; gap:.4rem; white-space:nowrap; cursor:pointer; }
+.seg button:hover { color:var(--ink); }
+.seg button[aria-pressed="true"] { background:var(--surface); color:var(--ink); box-shadow:0 1px 2px var(--shadow), 0 0 0 1px var(--line); }
+.seg button[aria-pressed="true"] .ico { color:var(--accent); }
+.spacer { flex:1; }
+.subj { appearance:none; background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238F806C' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right .6rem center/16px;
+  border:1px solid var(--line); border-radius:var(--r-sm); padding:.45rem 2rem .45rem .75rem; width:200px; max-width:40vw; cursor:pointer; }
+.iconbtn { border:1px solid transparent; background:transparent; border-radius:var(--r-sm); width:2.4rem; height:2.4rem;
+  display:grid; place-items:center; color:var(--muted); cursor:pointer; flex:none; }
+.iconbtn:hover { color:var(--ink); background:var(--surface-2); }
+.iconbtn.on { color:var(--accent); border-color:var(--line); background:var(--surface); }
+.jobs { display:flex; align-items:center; gap:.45rem; font-size:.82rem; color:var(--muted); white-space:nowrap; }
+.jobs .bar { width:70px; height:4px; background:var(--surface-2); border-radius:9px; overflow:hidden; }
+.jobs .bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .3s linear; }
+.studynav { margin:-.35rem 0 1.4rem; display:flex; }
+@media (max-width: 860px) {
+  .topbar .seg button span { display:none; }
+  .topbar .seg button { padding:.35rem .65rem; }
+  .topbar .seg button .ico { width:20px; height:20px; }
+  .brand .name { display:none; }
+}
+@media (max-width: 560px) {
+  .topbar { flex-wrap:wrap; }
+  .topbar .seg { order:5; width:100%; justify-content:space-between; }
+  .subj { width:auto; max-width:none; flex:1; }
+  .spacer { display:none; }
+}
+
+/* ---------- page head ---------- */
+.eyebrow { font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+.hero { margin:1.6rem 0 1.6rem; display:grid; gap:.45rem; }
+.hero h1 { font-size:clamp(2rem, 4.6vw, 2.9rem); line-height:1.08; }
+.hero h1 em { font-style:italic; font-weight:500; color:var(--accent); }
+.hero .sub { color:var(--muted); font-size:1.08rem; max-width:62ch; }
+.hero .meta { color:var(--muted); font-size:.88rem; }
+
+/* ---------- surfaces ---------- */
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:1.15rem 1.25rem 1.05rem; box-shadow:0 1px 2px var(--shadow); min-width:0; }
+.card.focus { border-color:var(--accent-line); box-shadow:inset 3px 0 0 var(--accent), 0 1px 2px var(--shadow); }
+.card h3 { font-size:1.2rem; display:flex; align-items:center; gap:.55rem; }
+.card h3 .ico { color:var(--accent); width:20px; height:20px; }
+.card .lead { color:var(--muted); margin-top:.3rem; }
+.grid { display:grid; gap:1rem; }
+.g2 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+.g3 { grid-template-columns:repeat(3, minmax(0,1fr)); }
+.g4 { grid-template-columns:repeat(4, minmax(0,1fr)); }
+.g-side { grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); }
+@media (max-width: 860px) { .g4 { grid-template-columns:repeat(2, minmax(0,1fr)); } .g-side { grid-template-columns:1fr; } }
+@media (max-width: 640px) { .g2, .g3, .g4 { grid-template-columns:1fr; } }
+.stack { display:grid; gap:1rem; }
+.section { margin-top:1.4rem; }
+.stat { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:.95rem 1.1rem; box-shadow:0 1px 2px var(--shadow); }
+.stat .k { display:flex; align-items:center; gap:.4rem; font-size:.84rem; font-weight:700; color:var(--muted); }
+.stat .k .ico { width:15px; height:15px; }
+.stat .v { font-family:var(--f-head); font-weight:600; font-size:1.9rem; line-height:1.15; margin-top:.3rem; font-variant-numeric:tabular-nums; }
+.stat .v small { font-size:.9rem; color:var(--muted); font-family:var(--f-body); font-weight:400; }
+.stat .v.acc { color:var(--accent); }
+.stat .d { color:var(--muted); font-size:.85rem; }
+
+/* ---------- controls ---------- */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; border:1px solid var(--edge); background:var(--surface);
+  color:var(--ink); border-radius:var(--r-sm); padding:.5rem 1rem; min-height:2.5rem; cursor:pointer; font-weight:400; white-space:nowrap; }
+.btn:hover { border-color:var(--accent); color:var(--accent); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+.btn.primary:hover { filter:brightness(1.07); color:var(--on-accent); }
+.btn.ghost { border-color:transparent; background:transparent; color:var(--muted); }
+.btn.ghost:hover { color:var(--ink); }
+.btn.danger { color:var(--danger); border-color:var(--danger-line); }
+.btn.sm { padding:.3rem .7rem; min-height:2rem; font-size:.88rem; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.row { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+.tabs { display:inline-flex; border:1px solid var(--edge); border-radius:var(--r-sm); overflow:hidden; max-width:100%; overflow-x:auto; }
+.tabs button { border:0; border-right:1px solid var(--edge); background:var(--surface); padding:.42rem .95rem; cursor:pointer;
+  display:flex; align-items:center; gap:.4rem; white-space:nowrap; }
+.tabs button:last-child { border-right:0; }
+.tabs button[aria-pressed="true"] { background:var(--accent-soft); color:var(--accent); }
+.field { display:grid; gap:.3rem; min-width:0; }
+.field > span { font-size:.86rem; font-weight:700; color:var(--muted); }
+.input, select.input, textarea.input { width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm); padding:.5rem .75rem; min-height:2.5rem; }
+textarea.input { min-height:5rem; resize:vertical; }
+.input:focus { border-color:var(--accent); outline:none; }
+input[type="range"] { accent-color:var(--accent); width:100%; }
+input[type="checkbox"] { accent-color:var(--accent); width:18px; height:18px; }
+.chip { display:inline-flex; align-items:center; gap:.3rem; border:1px solid var(--line); background:var(--surface-2); border-radius:99px;
+  padding:.12rem .6rem; font-size:.8rem; color:var(--muted); font-weight:700; white-space:nowrap; }
+.chip.acc { background:var(--accent-soft); border-color:var(--accent-line); color:var(--accent); }
+.chip.ok { background:var(--ok-soft); border-color:var(--ok-line); color:var(--ok); }
+.chip.warn { background:var(--warn-soft); border-color:var(--warn-line); color:var(--warn); }
+.chip.bad { background:var(--danger-soft); border-color:var(--danger-line); color:var(--danger); }
+.progress { height:8px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+.progress i { display:block; height:100%; background:var(--accent); border-radius:99px; transition:width .4s var(--ease); }
+.muted { color:var(--muted); }
+.small { font-size:.87rem; }
+.dot { width:9px; height:9px; border-radius:50%; flex:none; display:inline-block; }
+.k-lezione { --k:var(--blue); } .k-esame { --k:var(--accent); } .k-scadenza { --k:var(--warn); } .k-ricevimento { --k:var(--ok); } .k-studio { --k:var(--ink); }
+.dot { background:var(--k, var(--muted)); }
+.empty { text-align:center; padding:2rem 1rem; color:var(--muted); display:grid; gap:.7rem; justify-items:center; }
+.empty .ico { width:32px; height:32px; color:var(--line-2); }
+
+/* ---------- lists ---------- */
+.list { display:grid; }
+.li { display:flex; gap:.8rem; align-items:flex-start; padding:.75rem 0; border-bottom:1px solid var(--line); min-width:0; }
+.li:last-child { border-bottom:0; }
+.li .t { font-weight:700; }
+.li .s { color:var(--muted); font-size:.88rem; }
+.li .body { flex:1; min-width:0; }
+.li .time { font-weight:700; width:3.4rem; flex:none; font-variant-numeric:tabular-nums; }
+.li .dot { margin-top:.5rem; }
+.task { display:flex; gap:.75rem; align-items:flex-start; padding:.55rem 0; }
+.task input { margin-top:.25rem; flex:none; }
+.task .body { flex:1; min-width:0; }
+.task.done .t { text-decoration:line-through; color:var(--muted); }
+.task .t { font-weight:700; }
+.task .s { color:var(--muted); font-size:.88rem; }
+.play { width:2.2rem; height:2.2rem; border-radius:50%; border:1px solid var(--accent-line); background:transparent; color:var(--accent); display:grid; place-items:center; cursor:pointer; flex:none; }
+.play:hover { background:var(--accent-soft); }
+
+/* ---------- agenda ---------- */
+.week { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:.7rem; }
+.week.w6 { grid-template-columns:repeat(6, minmax(0,1fr)); }
+@media (max-width: 860px) { .week, .week.w6 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width: 480px) { .week, .week.w6 { grid-template-columns:1fr; } }
+.day { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:.7rem; display:grid; gap:.45rem; align-content:start; min-width:0; }
+.day.today { border-color:var(--accent-line); box-shadow:inset 0 3px 0 var(--accent); }
+.day .dh { display:flex; align-items:baseline; gap:.4rem; padding:.1rem .2rem .2rem; }
+.day .dh b { font-family:var(--f-head); font-size:1.5rem; font-weight:600; }
+.day.today .dh b { color:var(--accent); }
+.day .dh span { text-transform:uppercase; letter-spacing:.06em; font-size:.78rem; color:var(--muted); font-weight:700; }
+.slot { background:var(--surface-2); border-radius:8px; padding:.4rem .55rem; border-left:3px solid var(--k); font-size:.88rem; line-height:1.35;
+  cursor:pointer; text-align:left; border-top:0; border-right:0; border-bottom:0; width:100%; }
+.slot:hover { filter:brightness(.97); }
+.slot.studio { border-left:3px dotted var(--ink); cursor:default; color:var(--muted); }
+.slot b { font-variant-numeric:tabular-nums; }
+.legend { display:flex; gap:1rem; flex-wrap:wrap; color:var(--muted); font-size:.88rem; margin-top:.9rem; }
+.legend span { display:flex; align-items:center; gap:.4rem; }
+
+/* ---------- plan ---------- */
+.pday { display:grid; grid-template-columns:3.4rem minmax(0,1fr); gap:.4rem 1rem; }
+.pday .date { text-align:center; }
+.pday .date b { display:block; font-family:var(--f-head); font-size:1.6rem; font-weight:600; line-height:1.1; }
+.pday .date span { font-size:.76rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+.pday.is-today .date b { color:var(--accent); }
+.pday .tasks { grid-column:1 / -1; }
+
+/* ---------- quiz ---------- */
+.qhead { display:flex; gap:.6rem; align-items:baseline; font-family:var(--f-head); font-size:1.3rem; font-weight:600; }
+.qhead .n { color:var(--accent); }
+.opts { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.7rem; margin-top:1rem; }
+@media (max-width: 640px) { .opts { grid-template-columns:1fr; } }
+.opt { display:flex; align-items:center; gap:.7rem; border:1px solid var(--edge); background:var(--surface); border-radius:var(--r-sm); padding:.65rem .8rem;
+  text-align:left; cursor:pointer; min-width:0; }
+.opt .l { width:1.7rem; height:1.7rem; border-radius:7px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; font-weight:700; font-size:.85rem; flex:none; }
+.opt:hover:not(:disabled) { border-color:var(--accent); }
+.opt.right { border-color:var(--ok); background:var(--ok-soft); }
+.opt.right .l { background:var(--ok); color:var(--surface); }
+.opt.wrong { border-color:var(--danger); background:var(--danger-soft); }
+.opt.wrong .l { background:var(--danger); color:var(--surface); }
+.opt:disabled { cursor:default; }
+.explain { margin-top:1rem; padding:.75rem 1rem; border-radius:var(--r-sm); background:var(--surface-2); }
+.flash { perspective:1200px; cursor:pointer; }
+.flash .inner { position:relative; min-height:220px; transition:transform .5s var(--ease); transform-style:preserve-3d; }
+.flash.flipped .inner { transform:rotateY(180deg); }
+.flash .face { position:absolute; inset:0; backface-visibility:hidden; display:grid; place-items:center; text-align:center; padding:1.5rem;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:0 1px 2px var(--shadow); }
+.flash .face.back { transform:rotateY(180deg); background:var(--accent-soft); border-color:var(--accent-line); }
+.flash .face h2 { font-size:1.7rem; }
+.flash .face p { font-size:1.15rem; max-width:44ch; }
+@media (prefers-reduced-motion: reduce) { .flash .inner, .progress i { transition:none; } }
+
+/* ---------- map ---------- */
+.canvas { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:auto; max-width:100%; }
+.canvas svg { display:block; }
+.mnode rect { fill:var(--surface); stroke:var(--line-2); }
+.mnode.l0 rect, .mnode.l1 rect { fill:var(--accent-soft); stroke:var(--accent-line); }
+.mnode text { fill:var(--ink); font-family:var(--f-body); font-size:15px; }
+.mnode.l0 text, .mnode.l1 text { font-family:var(--f-head); font-weight:600; }
+.mnode { cursor:pointer; }
+.mnode:hover rect, .mnode.sel rect { stroke:var(--accent); stroke-width:2; }
+.medge { fill:none; stroke:var(--line-2); stroke-width:1.3; }
+.medge.x { stroke-dasharray:5 4; }
+.mlabel { fill:var(--muted); font-size:12px; font-family:var(--f-body); }
+.arrowhead { fill:var(--line-2); }
+.schema ul { margin:.2rem 0; padding-left:1.3rem; }
+.schema li { margin:.25rem 0; }
+.schema .v { color:var(--muted); font-size:.85rem; }
+
+/* ---------- archive ---------- */
+.drop { border:1.5px dashed var(--line-2); border-radius:var(--r); padding:1.4rem; text-align:center; color:var(--muted); display:grid; gap:.5rem; justify-items:center; cursor:pointer; }
+.drop.over { border-color:var(--accent); background:var(--accent-soft); }
+.hit { padding:.8rem 0; border-bottom:1px solid var(--line); }
+.hit:last-child { border-bottom:0; }
+.hit mark { background:var(--accent-soft); color:var(--accent); border-radius:3px; padding:0 .1rem; }
+.doc-text { white-space:pre-wrap; font-size:.95rem; max-height:55vh; overflow:auto; background:var(--surface-2); border-radius:var(--r-sm); padding:1rem; }
+
+/* ---------- grades ---------- */
+.gcard { display:grid; gap:.5rem; }
+.gcard .gv { font-family:var(--f-head); font-weight:600; font-size:2.6rem; line-height:1; font-variant-numeric:tabular-nums; }
+.gcard.bad { border:2px solid var(--danger); background:var(--danger-soft); }
+.gcard.bad .gv { color:var(--danger); }
+.gcard.limit { border-color:var(--warn-line); }
+.gpill { display:inline-flex; gap:.25rem; align-items:baseline; border:1px solid var(--line); background:var(--surface-2); border-radius:7px; padding:.1rem .45rem; font-weight:700; font-size:.9rem; }
+.gpill small { color:var(--muted); font-weight:400; font-size:.72rem; }
+.alert { display:flex; gap:.7rem; align-items:center; padding:.9rem 1.1rem; border-radius:var(--r); border:1px solid var(--danger-line); background:var(--danger-soft); flex-wrap:wrap; }
+.alert .ico { color:var(--danger); }
+.alert p { flex:1 1 260px; min-width:0; }
+.chart text { fill:var(--muted); font-size:11px; font-family:var(--f-body); }
+.chart .grid-l { stroke:var(--line); }
+
+/* ---------- session bar, modal, toast, palette ---------- */
+.sessbar { display:flex; align-items:center; gap:.8rem; padding:.7rem 1rem; border:1px solid var(--accent-line); background:var(--accent-soft);
+  border-radius:var(--r); margin-bottom:1rem; flex-wrap:wrap; }
+.sessbar .clock { font-family:var(--f-head); font-size:1.5rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--accent); }
+.sessbar .body { flex:1 1 200px; min-width:0; }
+.overlay { position:fixed; inset:0; background:var(--overlay); display:grid; place-items:start center; z-index:50;
+  padding:max(6vh, env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) 1rem max(16px, env(safe-area-inset-left,0px)); overflow:auto; }
+.modal { background:var(--surface); border:1px solid var(--line); border-radius:16px; width:min(560px, 100%); padding:1.3rem 1.4rem 1.2rem;
+  box-shadow:0 20px 60px rgba(0,0,0,.18); display:grid; gap:1rem; }
+.modal.wide { width:min(760px, 100%); }
+.modal header { display:flex; align-items:center; gap:.6rem; }
+.modal header h2 { font-size:1.35rem; flex:1; }
+.toast { position:fixed; left:50%; bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--ink); color:var(--bg);
+  padding:.6rem 1.1rem; border-radius:99px; font-size:.92rem; z-index:60; max-width:calc(100% - 32px); box-shadow:0 8px 24px rgba(0,0,0,.2); }
+.pal-list { display:grid; max-height:50vh; overflow:auto; }
+.pal-list button { text-align:left; border:0; background:transparent; padding:.55rem .6rem; border-radius:8px; cursor:pointer; display:flex; gap:.6rem; align-items:center; }
+.pal-list button:hover, .pal-list button.on { background:var(--surface-2); }
+.pal-list .s { color:var(--muted); font-size:.85rem; margin-left:auto; }
+.kbd { font-size:.75rem; border:1px solid var(--line-2); border-bottom-width:2px; border-radius:5px; padding:0 .3rem; color:var(--muted); font-weight:700; }
+.buy-box { display:flex; gap:.5rem; align-items:center; background:var(--surface-2); border-radius:var(--r-sm); padding:.6rem .8rem; flex-wrap:wrap; }
+.buy-box code { font-family:var(--f-body); font-weight:700; user-select:all; flex:1; min-width:0; overflow-wrap:anywhere; }
+.feat { display:grid; gap:.45rem; padding:0; margin:0; list-style:none; }
+.feat li { display:flex; gap:.5rem; align-items:flex-start; }
+.feat li .ico { color:var(--ok); margin-top:.15rem; }
+</style>
+</head>
+<body>
+
+<div class="demo-strip">
+  <div class="in">
+    <span class="tag">Demo</span>
+    <span class="txt">Dati di esempio. Puoi cliccare e modificare tutto: le modifiche restano solo in questo browser. Le risposte dell'AI sono simulate.</span>
+    <div class="seg" role="group" aria-label="Profilo della demo" id="levelSeg"></div>
+    <button class="btn primary sm" data-act="buy">Acquista StudyRAG</button>
+  </div>
+</div>
+<div class="wrap">
+  <header class="topbar" id="topbar"></header>
+  <div id="studynav"></div>
+  <div id="sessbar"></div>
+  <main id="view" tabindex="-1"></main>
+</div>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+"use strict";
+/* ===================== costanti ===================== */
+const SUPPORT_EMAIL = "studyrag.supporto@gmail.com";
+const BUY_URL = "";            // link Gumroad: quando c'è, il pulsante «Acquista» porta lì
+const STORE_KEY = "studyrag-demo-v1";
+
+/* ===================== icone (stesse di views/ui.py, tratto 1.8) ===================== */
+const IC = {
+  today:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/><rect x="7.5" y="13" width="4" height="4" rx=".8"/>',
+  school:'<path d="m2.5 9.5 9.5-5 9.5 5-9.5 5z"/><path d="M6.5 11.6v4.4c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-4.4M21.5 9.5v5"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/>',
+  folder:'<path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  award:'<circle cx="12" cy="9" r="5.5"/><path d="m8.6 13.4-1.4 7.1L12 18l4.8 2.5-1.4-7.1"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  plan:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/><path d="m9 15 2 2 4-4"/>',
+  quiz:'<circle cx="12" cy="12" r="9"/><path d="m8.2 12.3 2.6 2.6 5-5.6"/>',
+  map:'<circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="18.5" r="2.4"/><circle cx="19" cy="18.5" r="2.4"/><circle cx="12" cy="13" r="1.6"/><path d="M12 7.4v4M10.8 14 6.6 16.8M13.2 14l4.2 2.8"/>',
+  book:'<path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5h-5A1.5 1.5 0 0 1 3 16z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h5A1.5 1.5 0 0 0 21 16z"/>',
+  doc:'<path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 16.5h5"/>',
+  cards:'<rect x="3" y="7" width="13" height="14" rx="2.2"/><path d="M8 7V5.2A2.2 2.2 0 0 1 10.2 3h8.6A2.2 2.2 0 0 1 21 5.2v10.6a2.2 2.2 0 0 1-2.2 2.2H16"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/>',
+  spark:'<path d="M12 3.5 13.9 9a2 2 0 0 0 1.2 1.2l5.4 1.8-5.4 1.8a2 2 0 0 0-1.2 1.2L12 20.5 10.1 15a2 2 0 0 0-1.2-1.2L3.5 12l5.4-1.8A2 2 0 0 0 10.1 9z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  flame:'<path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.2-5.3 3.8-7.2.5 1.9 1.6 3 2.7 3.3C11.5 7 12.6 4.6 14.6 3c.3 2.6 1.6 4.2 2.9 5.8A8.4 8.4 0 0 1 19 14.4C19 18.2 15.9 21 12 21z"/>',
+  upload:'<path d="M12 15.5V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3a2.5 2.5 0 0 0 2.5 2.5h11A2.5 2.5 0 0 0 20 18v-3"/>',
+  db:'<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8v-13"/><path d="M4.5 12c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8"/>',
+  play:'<path d="M8 5.5v13l10-6.5z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  left:'<path d="m15 6-6 6 6 6"/>', right:'<path d="m9 6 6 6-6 6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  menu:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+  trash:'<path d="M4.5 7h15M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5h6V7"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  down:'<path d="M12 5v14M5 12l7 7 7-7"/>',
+  trend:'<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  timer:'<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5"/>',
+  refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4.5V11h-6.5"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+  pencil:'<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',
+  copy:'<rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+};
+const ic = (n, cls="") => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.spark}</svg>`;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ===================== date ===================== */
+const DAY = 864e5;
+const today0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const TODAY = today0();
+const addD = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parseISO = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const off = n => iso(addD(TODAY, n));
+const diffDays = s => Math.round((parseISO(s) - TODAY) / DAY);
+const wd = d => (d.getDay() + 6) % 7;          // lunedi' = 0
+const GG = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+const GIORNI = ["lunedì","martedì","mercoledì","giovedì","venerdì","sabato","domenica"];
+const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+const longDate = s => { const d = parseISO(s); return `${GIORNI[wd(d)]} ${d.getDate()} ${MESI[d.getMonth()]}`; };
+const shortDate = s => { const d = parseISO(s); return `${d.getDate()} ${MESI[d.getMonth()]} ${d.getFullYear()}`; };
+const inDays = n => n === 0 ? "oggi" : n === 1 ? "domani" : n === -1 ? "ieri" : n > 0 ? `tra ${n} giorni` : `${-n} giorni fa`;
+const hm = m => { m = Math.round(m); const h = Math.floor(m/60), r = m % 60; return h ? `${h} h${r ? " " + String(r).padStart(2,"0") : ""}` : `${r} min`; };
+const nf = (x, d=2) => x.toLocaleString("it-IT", {minimumFractionDigits:d, maximumFractionDigits:d});
+let _id = 0; const uid = p => `${p}${Date.now().toString(36)}${(_id++).toString(36)}`;
+
+/* ===================== contenuti di esempio (da core/demo.py e strumenti/brochure/vetrina.py) ===================== */
+const TXT = {
+termo_appunti: `Lezione 4 - Primo e secondo principio
+
+Il primo principio della termodinamica afferma che la variazione di energia interna di un sistema chiuso è pari al calore scambiato meno il lavoro compiuto dal sistema: ΔU = Q − L. È la legge di conservazione dell'energia applicata ai sistemi termodinamici.
+
+L'energia interna è una funzione di stato: dipende solo dallo stato del sistema e non dal percorso seguito. Calore e lavoro, invece, dipendono dalla trasformazione.
+
+Il secondo principio introduce l'entropia. In un sistema isolato l'entropia non diminuisce mai: le trasformazioni reali sono irreversibili e producono entropia. Enunciato di Kelvin-Planck: è impossibile realizzare una macchina che, operando ciclicamente, converta integralmente in lavoro il calore assorbito da una sola sorgente.
+
+Il ciclo di Carnot è formato da due trasformazioni isoterme e due adiabatiche reversibili. Il suo rendimento dipende solo dalle temperature delle sorgenti: η = 1 − Tf/Tc. Nessuna macchina che lavori tra le stesse due temperature può avere rendimento maggiore.
+
+Trasformazioni notevoli: isobara (pressione costante), isocora (volume costante), isoterma (temperatura costante), adiabatica (nessuno scambio di calore). Nel piano p-v il lavoro è l'area sottesa alla curva.
+
+L'entalpia h = u + pv è la grandezza naturale per i sistemi aperti in regime stazionario: turbine, compressori, scambiatori di calore e valvole di laminazione.`,
+termo_wiki: `Trasmissione del calore
+
+Il calore si trasmette in tre modi: conduzione, convezione e irraggiamento.
+
+Conduzione. Avviene nei solidi e nei fluidi in quiete. La legge di Fourier afferma che il flusso termico è proporzionale al gradiente di temperatura: q = −k ∇T, dove k è la conducibilità termica del materiale.
+
+Convezione. Il calore è trasportato da un fluido in moto. Può essere naturale (moto dovuto a differenze di densità) o forzata (pompe, ventilatori). Il coefficiente di scambio h dipende da velocità, geometria e proprietà del fluido ed è legato al numero di Nusselt.
+
+Irraggiamento. Trasmissione tramite onde elettromagnetiche, possibile anche nel vuoto. Un corpo nero emette secondo la legge di Stefan-Boltzmann: E = σT⁴.
+
+Conducibilità termica k [W/mK]: rame 385, acciaio 50, vetro 1, aria 0,026.`,
+termo_form: `Formulario rapido
+
+Primo principio: ΔU = Q − L
+Entalpia: h = u + pv
+Rendimento di Carnot: η = 1 − Tf/Tc
+Gas perfetto: pv = RT
+Fourier: q = −k ∇T
+Stefan-Boltzmann: E = σT⁴
+
+Ricorda: nelle formule le temperature vanno sempre in kelvin.`,
+analisi: `Limiti e continuità. Il limite di una funzione f(x) per x che tende a x0 è il valore a cui si avvicina f(x) quando x si avvicina a x0. Una funzione è continua in x0 se il limite coincide con il valore della funzione. Teorema di Weierstrass: una funzione continua su un intervallo chiuso e limitato ha massimo e minimo. Teorema degli zeri: se f è continua su [a, b] e f(a) e f(b) hanno segno opposto, esiste un punto in cui f si annulla.
+
+Derivate. La derivata misura la pendenza della retta tangente al grafico. Regole di derivazione: somma, prodotto, quoziente e funzione composta. Teorema di Lagrange: esiste un punto in cui la derivata è uguale al rapporto incrementale sull'intervallo. Studio di funzione: dominio, segno, limiti agli estremi, asintoti, derivata prima per la monotonia e i massimi e minimi, derivata seconda per la concavità.
+
+Integrali. L'integrale definito misura l'area con segno sotto il grafico. Teorema fondamentale del calcolo integrale: la derivata della funzione integrale è la funzione integranda. Metodi di integrazione: per parti, per sostituzione, per scomposizione in fratti semplici. Integrali impropri e criteri di convergenza.
+
+Serie numeriche. Una serie converge se la successione delle somme parziali ha limite finito. Serie geometrica, serie armonica generalizzata, criterio del rapporto, della radice e del confronto. Serie a segni alterni e criterio di Leibniz.`,
+chimica: `Struttura dell'atomo e tavola periodica. Protoni, neutroni ed elettroni; numero atomico e numero di massa. Gli orbitali s, p, d, f e la configurazione elettronica. Proprietà periodiche: raggio atomico, energia di ionizzazione, affinità elettronica ed elettronegatività.
+
+Legami chimici. Legame ionico, covalente puro e polare, legame metallico. La teoria VSEPR prevede la geometria delle molecole. Forze intermolecolari: legame a idrogeno, forze di Van der Waals.
+
+Stechiometria. La mole e il numero di Avogadro. Bilanciamento delle reazioni, reagente limitante, resa percentuale. Concentrazione delle soluzioni: molarità, molalità, frazione molare.
+
+Equilibrio chimico e acidi e basi. Costante di equilibrio e principio di Le Châtelier. Acidi e basi secondo Brønsted-Lowry, il pH, le soluzioni tampone e le titolazioni.`,
+mate: `Equazioni di secondo grado
+
+Forma normale: ax² + bx + c = 0, con a diverso da 0. Il discriminante Δ = b² − 4ac decide quante soluzioni ci sono: se Δ > 0 due soluzioni reali distinte, se Δ = 0 due soluzioni coincidenti, se Δ < 0 nessuna soluzione reale.
+
+Formula risolutiva: x = (−b ± √Δ) / 2a. Se b è pari conviene la formula ridotta con Δ/4.
+
+Somma e prodotto delle radici: x1 + x2 = −b/a e x1 · x2 = c/a. Servono per scomporre il trinomio: ax² + bx + c = a(x − x1)(x − x2).
+
+Equazioni pure (b = 0): x² = −c/a. Equazioni spurie (c = 0): si raccoglie x e una soluzione è sempre x = 0.
+
+Disequazioni di secondo grado: si studia il segno della parabola y = ax² + bx + c. Con a > 0 e Δ > 0 il trinomio è positivo per valori esterni alle radici.`,
+storia: `Il Rinascimento
+
+Tra il Quattrocento e il Cinquecento in Italia nasce un nuovo modo di guardare l'uomo e il mondo. L'Umanesimo riscopre i testi greci e latini e mette l'uomo al centro: è il "faber fortunae suae", artefice del proprio destino.
+
+Firenze è il centro del Rinascimento grazie al mecenatismo dei Medici, in particolare di Lorenzo il Magnifico (1449-1492), che mantiene l'equilibrio tra gli stati italiani con la Pace di Lodi (1454).
+
+Artisti: Brunelleschi progetta la cupola di Santa Maria del Fiore e usa la prospettiva; Leonardo da Vinci unisce arte e scienza; Michelangelo affresca la Cappella Sistina; Raffaello dipinge la Scuola di Atene.
+
+La stampa a caratteri mobili di Gutenberg (circa 1455) diffonde i libri e le idee in tutta Europa.
+
+Nel 1494 la discesa di Carlo VIII di Francia apre le guerre d'Italia: la penisola, divisa, diventa terreno di scontro tra Francia e Spagna.`,
+};
+
+const TERMO_MAP = {titolo:"Termodinamica applicata", nodi:[
+ {id:"r",e:"Termodinamica",l:0,n:"Studio degli scambi di energia come calore e lavoro."},
+ {id:"a",e:"Primo principio",l:1,n:"ΔU = Q − L: conservazione dell'energia."},
+ {id:"b",e:"Secondo principio",l:1,n:"L'entropia di un sistema isolato non diminuisce."},
+ {id:"c",e:"Trasformazioni",l:1,n:"Percorsi tra stati di equilibrio."},
+ {id:"d",e:"Trasmissione del calore",l:1,n:"Conduzione, convezione, irraggiamento."},
+ {id:"a1",e:"Energia interna",l:2,n:"Funzione di stato del sistema."},
+ {id:"a2",e:"Entalpia",l:2,n:"h = u + pv, per sistemi aperti."},
+ {id:"b1",e:"Entropia",l:2,n:"Misura dell'irreversibilità."},
+ {id:"b2",e:"Ciclo di Carnot",l:2,n:"Due isoterme e due adiabatiche reversibili."},
+ {id:"b3",e:"Rendimento η = 1 − Tf/Tc",l:3,n:"Limite massimo di una macchina termica."},
+ {id:"c1",e:"Isobara",l:2,n:"Pressione costante."},
+ {id:"c2",e:"Isocora",l:2,n:"Volume costante."},
+ {id:"c3",e:"Adiabatica",l:2,n:"Nessuno scambio di calore."},
+ {id:"d1",e:"Conduzione",l:2,n:"Legge di Fourier."},
+ {id:"d2",e:"Convezione",l:2,n:"Trasporto tramite un fluido in moto."},
+ {id:"d3",e:"Irraggiamento",l:2,n:"Onde elettromagnetiche, anche nel vuoto."}],
+ rel:[["r","a","si fonda su"],["r","b","si fonda su"],["r","c","studia"],["r","d","comprende"],["a","a1","bilancia"],["a","a2","definisce"],
+  ["b","b1","introduce"],["b","b2","limita"],["b2","b3","ha"],["c","c1","include"],["c","c2","include"],["c","c3","include"],
+  ["d","d1","avviene per"],["d","d2","avviene per"],["d","d3","avviene per"],["c3","b2","compone"]]};
+
+const ANALISI_MAP = {titolo:"Analisi 1 in breve", nodi:[
+ {id:"r",e:"Analisi 1",l:0,n:"Calcolo differenziale e integrale in una variabile."},
+ {id:"a",e:"Limiti",l:1,n:"Valore a cui tende f(x) quando x tende a x0."},
+ {id:"b",e:"Derivate",l:1,n:"Pendenza della retta tangente."},
+ {id:"c",e:"Integrali",l:1,n:"Area con segno sotto il grafico."},
+ {id:"d",e:"Serie",l:1,n:"Somme infinite: convergono se le somme parziali hanno limite finito."},
+ {id:"a1",e:"Continuità",l:2,n:"Il limite coincide con f(x0)."},
+ {id:"a2",e:"Teorema degli zeri",l:2,n:"Segni opposti agli estremi: esiste uno zero."},
+ {id:"b1",e:"Lagrange",l:2,n:"Derivata uguale al rapporto incrementale in un punto."},
+ {id:"b2",e:"Studio di funzione",l:2,n:"Dominio, segno, asintoti, monotonia, concavità."},
+ {id:"c1",e:"Teorema fondamentale",l:2,n:"La derivata della funzione integrale è l'integranda."},
+ {id:"c2",e:"Integrali impropri",l:2,n:"Su intervalli illimitati o funzioni illimitate."},
+ {id:"d1",e:"Criteri di convergenza",l:2,n:"Rapporto, radice, confronto, Leibniz."}],
+ rel:[["r","a","parte da"],["r","b","studia"],["r","c","studia"],["r","d","comprende"],["a","a1","definisce"],["a","a2","porta a"],
+  ["b","b1","include"],["b","b2","serve per"],["c","c1","si collega con"],["c","c2","estende a"],["d","d1","si studiano con"],["c2","d1","usa"]]};
+
+const CHIMICA_MAP = {titolo:"Chimica generale", nodi:[
+ {id:"r",e:"Chimica generale",l:0,n:"Struttura della materia e reazioni."},
+ {id:"a",e:"Atomo",l:1,n:"Protoni, neutroni, elettroni."},
+ {id:"b",e:"Legami",l:1,n:"Ionico, covalente, metallico."},
+ {id:"c",e:"Stechiometria",l:1,n:"Rapporti tra quantità nelle reazioni."},
+ {id:"d",e:"Equilibrio",l:1,n:"Reazioni che procedono in entrambi i versi."},
+ {id:"a1",e:"Configurazione elettronica",l:2,n:"Orbitali s, p, d, f."},
+ {id:"a2",e:"Proprietà periodiche",l:2,n:"Raggio, ionizzazione, elettronegatività."},
+ {id:"b1",e:"VSEPR",l:2,n:"Prevede la geometria delle molecole."},
+ {id:"c1",e:"La mole",l:2,n:"6,022 × 10²³ particelle (Avogadro)."},
+ {id:"c2",e:"Reagente limitante",l:2,n:"Finisce per primo e decide la resa."},
+ {id:"d1",e:"Le Châtelier",l:2,n:"L'equilibrio si sposta per contrastare la perturbazione."},
+ {id:"d2",e:"Acidi, basi e pH",l:2,n:"Brønsted-Lowry, tamponi, titolazioni."}],
+ rel:[["r","a","parte da"],["r","b","studia"],["r","c","calcola con"],["r","d","studia"],["a","a1","ha"],["a","a2","determina"],
+  ["b","b1","geometria con"],["c","c1","si basa su"],["c","c2","individua"],["d","d1","segue"],["d","d2","comprende"],["a2","b","spiega"]]};
+
+const STORIA_MAP = {titolo:"Il Rinascimento", nodi:[
+ {id:"r",e:"Rinascimento",l:0,n:"XV-XVI secolo, nasce in Italia."},
+ {id:"a",e:"Umanesimo",l:1,n:"Riscoperta dei classici, l'uomo al centro."},
+ {id:"b",e:"Firenze",l:1,n:"Centro del Rinascimento."},
+ {id:"c",e:"Artisti",l:1,n:"Brunelleschi, Leonardo, Michelangelo, Raffaello."},
+ {id:"d",e:"Guerre d'Italia",l:1,n:"Dal 1494, Francia contro Spagna."},
+ {id:"b1",e:"Lorenzo il Magnifico",l:2,n:"Mecenate, 1449-1492."},
+ {id:"b2",e:"Pace di Lodi (1454)",l:2,n:"Equilibrio tra gli stati italiani."},
+ {id:"c1",e:"Prospettiva",l:2,n:"Brunelleschi, cupola di Santa Maria del Fiore."},
+ {id:"a1",e:"Stampa (1455)",l:2,n:"Gutenberg diffonde libri e idee."},
+ {id:"d1",e:"Carlo VIII",l:2,n:"Scende in Italia nel 1494."}],
+ rel:[["r","a","nasce da"],["r","b","ha centro a"],["r","c","si esprime con"],["r","d","finisce con"],["b","b1","guidata da"],["b1","b2","difende"],
+  ["c","c1","introducono"],["a","a1","si diffonde con"],["d","d1","iniziano con"],["d1","b2","rompe"]]};
+
+const Q = (q, o, a, e) => ({q, o, a, e});
+const POOL = {
+"Termodinamica": [Q("Cosa esprime il primo principio della termodinamica?",["La conservazione dell'energia","L'aumento dell'entropia","L'impossibilità del moto perpetuo di seconda specie","La costanza della temperatura"],0,"ΔU = Q − L: l'energia si conserva."),
+ Q("Da cosa dipende il rendimento del ciclo di Carnot?",["Dal fluido di lavoro","Solo dalle temperature delle sorgenti","Dalla pressione massima","Dal volume del cilindro"],1,"η = 1 − Tf/Tc, con temperature in kelvin."),
+ Q("In una trasformazione isocora resta costante…",["la temperatura","la pressione","il volume","l'entropia"],2,"Isocora = volume costante."),
+ Q("Quale grandezza si usa per i sistemi aperti in regime stazionario?",["Energia interna","Entalpia","Exergia","Calore specifico"],1,"h = u + pv."),
+ Q("La legge di Fourier descrive…",["l'irraggiamento","la convezione","la conduzione","il cambiamento di fase"],2,"Flusso proporzionale al gradiente di temperatura."),
+ Q("Quale materiale conduce meglio il calore?",["Vetro","Aria","Acciaio","Rame"],3,"Rame: k = 385 W/mK."),
+ Q("Un corpo nero emette energia proporzionale a…",["T","T²","T³","T⁴"],3,"Legge di Stefan-Boltzmann: E = σT⁴."),
+ Q("In un sistema isolato l'entropia…",["diminuisce sempre","non diminuisce mai","resta sempre costante","dipende dal lavoro"],1,"Secondo principio.")],
+"Analisi 1": [Q("Quando una funzione è continua in x0?",["Se il limite coincide con f(x0)","Se è derivabile","Se è limitata","Se è positiva"],0,"Definizione di continuità."),
+ Q("Il teorema di Weierstrass garantisce…",["l'esistenza di uno zero","massimo e minimo su [a, b]","la derivabilità","la convergenza"],1,"Funzione continua su intervallo chiuso e limitato."),
+ Q("Cosa misura la derivata in un punto?",["L'area sotto il grafico","La pendenza della tangente","Il valore massimo","La concavità"],1,"Coefficiente angolare della retta tangente."),
+ Q("Per studiare la concavità si usa…",["la derivata prima","la derivata seconda","l'integrale","il limite all'infinito"],1,"Segno della derivata seconda."),
+ Q("Il criterio di Leibniz vale per le serie…",["a termini positivi","geometriche","a segni alterni","armoniche"],2,"Termini decrescenti e infinitesimi."),
+ Q("La serie geometrica di ragione q converge se…",["q > 1","|q| < 1","q = 1","sempre"],1,"Somma 1/(1 − q).")],
+"Chimica generale": [Q("Il numero atomico indica…",["protoni + neutroni","il numero di protoni","il numero di elettroni di valenza","la massa"],1,"Z = numero di protoni."),
+ Q("La teoria VSEPR serve a prevedere…",["il pH","la geometria delle molecole","la resa","la molarità"],1,"Repulsione delle coppie elettroniche."),
+ Q("Il reagente limitante è quello che…",["è in eccesso","finisce per primo","ha massa maggiore","catalizza"],1,"Decide quanto prodotto si forma."),
+ Q("Una soluzione con pH 3 è…",["basica","neutra","acida","tampone"],2,"pH minore di 7."),
+ Q("Il principio di Le Châtelier dice che un equilibrio perturbato…",["si annulla","si sposta per contrastare la perturbazione","resta uguale","diventa irreversibile"],1,"Risposta del sistema alla perturbazione.")],
+"Matematica": [Q("Se Δ < 0 l'equazione ax² + bx + c = 0…",["ha due soluzioni reali","ha una soluzione doppia","non ha soluzioni reali","ha infinite soluzioni"],2,"Il discriminante negativo esclude soluzioni reali."),
+ Q("Quanto vale x1 · x2?",["−b/a","c/a","b/a","−c/a"],1,"Prodotto delle radici."),
+ Q("Un'equazione spuria ha…",["b = 0","c = 0","a = 0","Δ = 0"],1,"Si raccoglie x: una soluzione è 0."),
+ Q("Le soluzioni di x² − 5x + 6 = 0 sono…",["1 e 6","2 e 3","−2 e −3","5 e 6"],1,"Somma 5, prodotto 6."),
+ Q("Con a > 0 e Δ > 0, ax² + bx + c > 0 per…",["valori interni alle radici","valori esterni alle radici","nessun valore","ogni x"],1,"La parabola è sopra l'asse fuori dalle radici.")],
+"Storia": [Q("Chi progettò la cupola di Santa Maria del Fiore?",["Michelangelo","Brunelleschi","Leonardo","Raffaello"],1,"Filippo Brunelleschi."),
+ Q("La Pace di Lodi è del…",["1454","1494","1492","1527"],0,"Equilibrio tra gli stati italiani."),
+ Q("Nel 1494 scende in Italia…",["Carlo V","Francesco I","Carlo VIII","Luigi XII"],2,"Inizio delle guerre d'Italia."),
+ Q("La stampa a caratteri mobili si deve a…",["Gutenberg","Galileo","Erasmo","Lutero"],0,"Circa 1455.")],
+};
+const CARDPOOL = {
+"Termodinamica": [["Entropia","Misura dell'irreversibilità; in un sistema isolato non diminuisce."],["Ciclo di Carnot","Due isoterme e due adiabatiche reversibili."],["Entalpia","h = u + pv: utile per i sistemi aperti."],["Isobara","Trasformazione a pressione costante."],["Legge di Fourier","q = −k ∇T"],["Rendimento di Carnot","η = 1 − Tf/Tc"],["Kelvin-Planck","Impossibile convertire tutto il calore di una sola sorgente in lavoro, ciclicamente."],["Stefan-Boltzmann","E = σT⁴ per il corpo nero."]],
+"Analisi 1": [["Continuità in x0","lim f(x) per x→x0 = f(x0)"],["Teorema degli zeri","f continua su [a,b], f(a)·f(b) < 0 ⇒ esiste c con f(c) = 0"],["Lagrange","f'(c) = (f(b) − f(a)) / (b − a)"],["Derivata del prodotto","(fg)' = f'g + fg'"],["Integrazione per parti","∫f g' = fg − ∫f' g"],["Serie geometrica","Converge per |q| < 1, somma 1/(1 − q)"],["Criterio del rapporto","lim |a(n+1)/a(n)| < 1 ⇒ converge"],["Asintoto obliquo","y = mx + q con m = lim f(x)/x"],["Teorema fondamentale","(∫ da a a x di f) ' = f(x)"]],
+"Chimica generale": [["Numero di Avogadro","6,022 × 10²³ mol⁻¹"],["Molarità","moli di soluto / litri di soluzione"],["Elettronegatività","Tendenza di un atomo ad attrarre gli elettroni di legame"],["Soluzione tampone","Resiste alle variazioni di pH"],["pH","−log [H₃O⁺]"]],
+"Matematica": [["Discriminante","Δ = b² − 4ac"],["Formula risolutiva","x = (−b ± √Δ) / 2a"],["Somma delle radici","x1 + x2 = −b/a"],["Prodotto delle radici","x1 · x2 = c/a"],["Equazione pura","b = 0: x² = −c/a"]],
+"Storia": [["Lorenzo il Magnifico","Signore di Firenze, mecenate (1449-1492)"],["Pace di Lodi","1454: equilibrio tra gli stati italiani"],["Faber fortunae suae","L'uomo artefice del proprio destino (Umanesimo)"],["1494","Carlo VIII scende in Italia: iniziano le guerre d'Italia"],["Gutenberg","Stampa a caratteri mobili, circa 1455"]],
+};
+const MAPPOOL = {"Termodinamica":TERMO_MAP, "Analisi 1":ANALISI_MAP, "Chimica generale":CHIMICA_MAP, "Storia":STORIA_MAP};
+const TOPICS = {
+"Termodinamica":["Primo principio","Energia interna e lavoro","Secondo principio","Entropia","Ciclo di Carnot","Trasformazioni notevoli","Entalpia e sistemi aperti","Conduzione e legge di Fourier","Convezione","Irraggiamento"],
+"Analisi 1":["Limiti e continuità","Teoremi di Weierstrass e degli zeri","Derivate e regole di derivazione","Teorema di Lagrange","Studio di funzione","Integrali definiti","Metodi di integrazione","Integrali impropri","Serie numeriche","Criteri di convergenza"],
+"Chimica generale":["Struttura dell'atomo","Configurazione elettronica","Proprietà periodiche","Legami chimici","Geometria VSEPR","La mole e la stechiometria","Reagente limitante","Soluzioni e concentrazioni","Equilibrio chimico","Acidi, basi e pH"],
+"Matematica":["Forma normale e discriminante","Formula risolutiva","Somma e prodotto delle radici","Equazioni pure e spurie","Disequazioni di secondo grado","Esercizi dal libro"],
+"Storia":["Umanesimo","Firenze e i Medici","Gli artisti del Rinascimento","La stampa","Le guerre d'Italia"],
+};
+
+/* ===================== seed ===================== */
+function buildPlan(subject, examOff, source, firstPage, startOff) {
+  const topics = TOPICS[subject] || ["Studio"];
+  const days = []; let k = 0, page = firstPage;
+  for (let o = startOff; o < examOff; o++) {
+    const d = addD(TODAY, o);
+    if (wd(d) === 6) continue;                       // domenica libera
+    const n = o === 0 ? 4 : 2 + ((o + subject.length) % 3);
+    const tasks = [];
+    for (let i = 0; i < n; i++) {
+      const base = topics[k % topics.length];
+      const rip = k >= topics.length;
+      const usesBook = source.book && i % 2 === 1;
+      const loc = usesBook ? `${source.book}, pp. ${page}–${page + 12}` : `${source.doc}, parte ${(k % 2) + 1}/2`;
+      if (usesBook) page += 13;
+      tasks.push({id:uid("t"), title:(rip ? "Ripasso: " : "") + base, kind:rip ? "ripasso" : "studio", loc, min:usesBook ? 50 : 30 + (k % 3) * 10, done:o < 0});
+      k++;
+    }
+    days.push({date:iso(d), tasks});
+  }
+  return {exam:off(examOff), days};
+}
+function lessonsUni() {
+  const L = (s, w, a, b, room, prof="") => ({id:uid("l"), subject:s, wd:w, start:a, end:b, room, teacher:prof});
+  return [L("Termodinamica",0,"09:30","11:30","Aula B2","Prof. Rossi"), L("Termodinamica",2,"14:00","16:00","Aula B2","Prof. Rossi"), L("Termodinamica",3,"09:30","11:30","Lab. 3","Prof. Rossi"),
+    L("Analisi 1",0,"14:00","16:00","Aula 1","Prof.ssa Bianchi"), L("Analisi 1",3,"14:00","16:00","Aula 1","Prof.ssa Bianchi"),
+    L("Chimica generale",1,"09:00","11:00","Aula 7","Prof. Galli"), L("Chimica generale",4,"11:00","13:00","Aula 7","Prof. Galli")];
+}
+function lessonsSup() {
+  const L = (s, w, a, b) => ({id:uid("l"), subject:s, wd:w, start:a, end:b, room:"3ª B", teacher:""});
+  return [L("Matematica",0,"08:00","09:00"),L("Italiano",0,"09:00","10:00"),L("Storia",0,"10:00","11:00"),L("Latino",1,"08:00","10:00"),L("Inglese",1,"10:00","11:00"),
+    L("Fisica",2,"10:00","11:00"),L("Matematica",2,"11:00","12:00"),L("Storia",3,"08:00","09:00"),L("Italiano",3,"09:00","11:00"),L("Inglese",4,"11:00","12:00"),L("Matematica",4,"08:00","09:00"),L("Latino",5,"09:00","10:00")];
+}
+const doc = (name, key, ext) => ({id:uid("d"), name, text:TXT[key], ext, size:TXT[key].length * 1.1 | 0, added:off(-12)});
+function cardsFrom(subject, n) {
+  return (CARDPOOL[subject] || []).slice(0, n).map(([f,b], i) => ({id:uid("c"), front:f, back:b, box:i % 3, due:i < Math.ceil(n*0.55) ? off(0) : off(3)}));
+}
+function seedUni() {
+  return {
+    level:"uni", name:"Sofia", course:"Ingegneria energetica", year:"2°", minutesPerDay:240, subject:"Termodinamica",
+    subjects:{
+      "Termodinamica":{docs:[doc("Appunti_lezione_04.txt","termo_appunti","txt"), doc("Wiki_trasmissione_calore.html","termo_wiki","html"), doc("Formulario.md","termo_form","md")],
+        plan:buildPlan("Termodinamica",18,{doc:"Appunti_lezione_04.txt", book:"Termodinamica e trasmissione del calore"},141,-3),
+        quizzes:[{id:uid("q"), title:"Primo e secondo principio", qs:POOL["Termodinamica"].slice(0,5), best:4}], cards:cardsFrom("Termodinamica",8), maps:[{id:uid("m"), ...TERMO_MAP, source:"Appunti_lezione_04.txt", created:off(-4)}]},
+      "Analisi 1":{docs:[doc("Dispense_Analisi.txt","analisi","txt")],
+        plan:buildPlan("Analisi 1",9,{doc:"Dispense_Analisi.txt", book:"Analisi matematica 1"},211,-6),
+        quizzes:[{id:uid("q"), title:"Limiti e derivate", qs:POOL["Analisi 1"].slice(0,5), best:4}], cards:cardsFrom("Analisi 1",9), maps:[{id:uid("m"), ...ANALISI_MAP, source:"Dispense_Analisi.txt", created:off(-6)}]},
+      "Chimica generale":{docs:[doc("Dispense_Chimica.txt","chimica","txt")], plan:null, quizzes:[], cards:[], maps:[]},
+    },
+    lessons:lessonsUni(),
+    events:[
+      {id:uid("e"), title:"Esame scritto", date:off(18), kind:"esame", subject:"Termodinamica", start:"09:00", end:"12:00", place:"Aula Magna"},
+      {id:uid("e"), title:"Esame di Analisi 1", date:off(9), kind:"esame", subject:"Analisi 1", start:"09:00", end:"12:00", place:"Aula 4"},
+      {id:uid("e"), title:"Esame di Chimica generale", date:off(26), kind:"esame", subject:"Chimica generale", start:"09:00", end:"12:00", place:"Aula 4"},
+      {id:uid("e"), title:"Consegna esercitazione 3", date:off(6), kind:"scadenza", subject:"Termodinamica", start:"", end:"", place:""},
+      {id:uid("e"), title:"Ricevimento Prof. Rossi", date:off(3), kind:"ricevimento", subject:"Termodinamica", start:"15:00", end:"16:00", place:"Studio 214"},
+      {id:uid("e"), title:"Seminario «Energia e clima»", date:off(12), kind:"ricevimento", subject:"", start:"17:00", end:"18:30", place:"Aula Magna"},
+    ],
+    books:[{id:uid("b"), title:"Termodinamica e trasmissione del calore", author:"Çengel, Boles", pages:520, done:140, subject:"Termodinamica"},
+           {id:uid("b"), title:"Analisi matematica 1", author:"Autori vari", pages:480, done:210, subject:"Analisi 1"},
+           {id:uid("b"), title:"Chimica", author:"Autori vari", pages:610, done:58, subject:"Chimica generale"}],
+    exams:[{id:uid("x"), name:"Fisica 1", cfu:12, grade:28, lode:false, date:off(-60)}, {id:uid("x"), name:"Geometria", cfu:9, grade:26, lode:false, date:off(-100)},
+           {id:uid("x"), name:"Informatica", cfu:9, grade:30, lode:true, date:off(-140)}, {id:uid("x"), name:"Disegno tecnico", cfu:6, grade:27, lode:false, date:off(-180)},
+           {id:uid("x"), name:"Inglese B2", cfu:3, grade:null, lode:false, date:off(-220)}],
+    targetBase:105, totalCfu:180, grades:[], log:seedLog(["Termodinamica","Analisi 1","Chimica generale"]),
+  };
+}
+function seedSup() {
+  const G = {"Italiano":["7","7½","8-","7+"], "Matematica":["6","5+","6½","5-"], "Storia":["6","6/7","7-"], "Inglese":["8","8+","8½"], "Fisica":["5½","6½","6"], "Latino":["7-","7","6½"]};
+  const grades = [];
+  for (const [s, gs] of Object.entries(G)) gs.forEach((g, i) => grades.push({id:uid("g"), subject:s, grade:g, kind:i % 2 ? "orale" : "scritto", date:off(-5 - 9*i)}));
+  const empty = () => ({docs:[], plan:null, quizzes:[], cards:[], maps:[]});
+  return {
+    level:"sup", name:"Marco", course:"Liceo scientifico", year:"3ª", minutesPerDay:90, subject:"Matematica",
+    subjects:{
+      "Italiano":empty(),
+      "Matematica":{docs:[doc("Appunti_equazioni.txt","mate","txt")], plan:buildPlan("Matematica",4,{doc:"Appunti_equazioni.txt", book:"Matematica.blu"},88,-2),
+        quizzes:[{id:uid("q"), title:"Equazioni di secondo grado", qs:POOL["Matematica"], best:3}], cards:cardsFrom("Matematica",5), maps:[]},
+      "Storia":{docs:[doc("Riassunto_Rinascimento.txt","storia","txt")], plan:buildPlan("Storia",2,{doc:"Riassunto_Rinascimento.txt"},0,-1),
+        quizzes:[], cards:cardsFrom("Storia",5), maps:[{id:uid("m"), ...STORIA_MAP, source:"Riassunto_Rinascimento.txt", created:off(-3)}]},
+      "Inglese":empty(), "Fisica":empty(), "Latino":empty(),
+    },
+    lessons:lessonsSup(),
+    events:[{id:uid("e"), title:"Verifica di matematica", date:off(4), kind:"esame", subject:"Matematica", start:"08:00", end:"09:00", place:""},
+            {id:uid("e"), title:"Interrogazione di storia", date:off(2), kind:"esame", subject:"Storia", start:"", end:"", place:""},
+            {id:uid("e"), title:"Compiti di latino pag. 112", date:off(1), kind:"scadenza", subject:"Latino", start:"", end:"", place:""},
+            {id:uid("e"), title:"Colloqui con i professori", date:off(8), kind:"ricevimento", subject:"", start:"16:00", end:"18:00", place:"Scuola"}],
+    books:[{id:uid("b"), title:"I promessi sposi", author:"Alessandro Manzoni", pages:704, done:212, subject:"Italiano"},
+           {id:uid("b"), title:"Matematica.blu 3", author:"Bergamini, Barozzi", pages:820, done:96, subject:"Matematica"}],
+    exams:[], targetBase:105, totalCfu:180, grades, log:seedLog(["Matematica","Storia","Italiano","Latino"]),
+  };
+}
+function seedLog(subs) {
+  const log = []; let r = 7;
+  for (let k = 1; k <= 21; k++) { if (k % 6 === 0) continue; r = (r * 37 + 11) % 97;
+    log.push({date:off(-k), minutes:[45,60,90,120][r % 4], subject:subs[r % subs.length]}); }
+  return log;
+}
+
+/* ===================== stato ===================== */
+let S, UI = {view:"oggi", study:"piano", week:0, agTab:"eventi", quizTab:"quiz", qi:0, qState:null, card:0, flipped:false,
+  mapTab:"mappa", mapSel:null, mapIdx:0, search:"", carTab:"libretto", gradeTab:"materia", period:"1", job:null, session:null};
+function fresh(level) { const st = level === "sup" ? seedSup() : seedUni(); st.seedDay = iso(TODAY); st.theme = (S && S.theme) || "auto"; return st; }
+function load() {
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) { const st = JSON.parse(raw); if (st.seedDay === iso(TODAY) && st.subjects) return st; } } catch (e) {}
+  return fresh("uni");
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
+S = load();
+const subjNames = () => Object.keys(S.subjects);
+const cur = () => S.subjects[S.subject] || S.subjects[subjNames()[0]];
+const isSup = () => S.level === "sup";
+function applyTheme() {
+  const r = document.documentElement;
+  if (S.theme === "light" || S.theme === "dark") r.setAttribute("data-theme", S.theme); else r.removeAttribute("data-theme");
+}
+
+/* ===================== navigazione ===================== */
+const STUDY = ["piano","quiz","mappe","biblioteca"];
+const PAGES = {oggi:["Oggi","today"], piano:["Piano","plan"], quiz:["Quiz","quiz"], mappe:["Mappe","map"], biblioteca:["Biblioteca","book"],
+  agenda:["Agenda","calendar"], archivio:["Archivio","folder"], carriera:["Carriera","award"], impostazioni:["Impostazioni","gear"]};
+const pageLabel = k => k === "carriera" && isSup() ? "Voti" : PAGES[k][0];
+function go(view) {
+  if (!PAGES[view]) view = "oggi";
+  if (STUDY.includes(view)) UI.study = view;
+  UI.view = view; UI.mapSel = null;
+  if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+  render(); window.scrollTo({top:0});
+}
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if (v && v !== UI.view && PAGES[v]) go(v); });
+
+function renderTop() {
+  const nav = [["oggi","Oggi","today"],["studia","Studia","school"],["agenda","Agenda","calendar"],["archivio","Archivio","folder"],["carriera",pageLabel("carriera"),"award"]];
+  const active = STUDY.includes(UI.view) ? "studia" : UI.view;
+  const j = UI.job;
+  document.getElementById("topbar").innerHTML = `
+    <button class="iconbtn" data-act="palette" title="Cerca e vai (Ctrl+K)" aria-label="Cerca e vai">${ic("search")}</button>
+    <div class="brand"><div class="mark">S</div><div class="name">StudyRAG</div></div>
+    <nav class="seg" aria-label="Sezioni">${nav.map(([k,l,i]) => `<button data-go="${k === "studia" ? UI.study : k}" aria-pressed="${active === k}">${ic(i)}<span>${l}</span></button>`).join("")}</nav>
+    <div class="spacer"></div>
+    ${j ? `<div class="jobs" role="status">${ic("spark")}<span>${esc(j.label)}</span><span class="bar"><i id="jobbar" style="width:${j.p}%"></i></span></div>` : ""}
+    <select class="subj" id="subjPick" aria-label="Materia attiva" title="Materia attiva: piano, quiz, mappe e archivio sono separati per materia">
+      ${subjNames().map(s => `<option ${s === S.subject ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <button class="iconbtn ${UI.view === "impostazioni" ? "on" : ""}" data-go="impostazioni" title="Impostazioni" aria-label="Impostazioni">${ic("gear")}</button>`;
+  document.getElementById("studynav").innerHTML = STUDY.includes(UI.view) ? `<div class="studynav"><nav class="seg" aria-label="Studia">${STUDY.map(k =>
+    `<button data-go="${k}" aria-pressed="${UI.view === k}">${ic(PAGES[k][1])}<span>${PAGES[k][0]}</span></button>`).join("")}</nav></div>` : "";
+  document.getElementById("levelSeg").innerHTML = [["uni","Università"],["sup","Superiori"]].map(([k,l]) => `<button data-level="${k}" aria-pressed="${S.level === k}">${l}</button>`).join("");
+}
+function hero(eyebrow, title, sub, meta="") {
+  return `<div class="hero"><div class="eyebrow">${eyebrow}</div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}${meta ? `<p class="meta">${meta}</p>` : ""}</div>`;
+}
+const stat = (icon, k, v, d, acc=false) => `<div class="stat"><div class="k">${ic(icon)}${k}</div><div class="v ${acc ? "acc" : ""}">${v}</div><div class="d">${d}</div></div>`;
+
+/* ===================== dati derivati ===================== */
+function allTasksOn(date) {
+  const out = [];
+  for (const [s, d] of Object.entries(S.subjects)) { const day = d.plan && d.plan.days.find(x => x.date === date); if (day) day.tasks.forEach(t => out.push({...t, subject:s, ref:t})); }
+  return out;
+}
+function lessonsOn(date) { const w = wd(parseISO(date)); return S.lessons.filter(l => l.wd === w).sort((a,b) => a.start.localeCompare(b.start)); }
+function eventsOn(date) { return S.events.filter(e => e.date === date).sort((a,b) => (a.start||"99").localeCompare(b.start||"99")); }
+function nextExam() { return S.events.filter(e => e.kind === "esame" && diffDays(e.date) >= 0).sort((a,b) => a.date.localeCompare(b.date))[0]; }
+function planStats(p) { const all = p.days.flatMap(d => d.tasks); const done = all.filter(t => t.done); return {all, done, pct:all.length ? done.length / all.length : 0, left:all.filter(t => !t.done).reduce((a,t) => a + t.min, 0)}; }
+function dueCards(sub) { return (S.subjects[sub]?.cards || []).filter(c => c.due <= iso(TODAY)); }
+function readiness(sub) {
+  const d = S.subjects[sub]; if (!d || !d.plan) return 0;
+  const ps = planStats(d.plan); const q = d.quizzes[0]; const qs = q ? q.best / q.qs.length : .5;
+  return Math.round((ps.pct * .7 + qs * .3) * 100);
+}
+
+/* ===================== OGGI ===================== */
+function vOggi() {
+  const h = new Date().getHours();
+  const greet = h < 12 ? "Buongiorno" : h < 18 ? "Buon pomeriggio" : "Buonasera";
+  const t = iso(TODAY), lez = lessonsOn(t), evs = eventsOn(t), ex = nextExam();
+  const tasks = allTasksOn(t);
+  const planned = tasks.reduce((a,x) => a + x.min, 0);
+  const due = subjNames().reduce((a,s) => a + dueCards(s).length, 0);
+  const week = S.log.filter(x => diffDays(x.date) >= -7).reduce((a,x) => a + x.minutes, 0);
+  let streak = 0; for (let k = 1; k < 30; k++) { if (S.log.some(x => x.date === off(-k))) streak++; else break; }
+  const meta = [cap(longDate(t)), lez.length ? `${lez.length} ${lez.length === 1 ? "lezione" : "lezioni"}` : "nessuna lezione",
+    ex ? `${isSup() ? "" : "esame di "}${esc(ex.subject || ex.title)}${isSup() ? ` (${esc(ex.title.toLowerCase())})` : ""} ${inDays(diffDays(ex.date))}` : ""].filter(Boolean).join(" · ");
+  const exSub = ex ? ex.subject : S.subject;
+  const nextTask = tasks.filter(x => !x.done).sort((a,b) => (a.subject === exSub ? -1 : 0) - (b.subject === exSub ? -1 : 0))[0];
+  const ready = ex ? readiness(ex.subject) : 0;
+  const upcoming = S.events.filter(e => diffDays(e.date) >= 0).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 4);
+  const bySub = {}; tasks.forEach(x => (bySub[x.subject] ||= []).push(x));
+  const order = Object.keys(bySub).sort((a,b) => (S.subjects[a].plan.exam).localeCompare(S.subjects[b].plan.exam));
+  return hero("Oggi", `${greet}, ${esc(S.name)}.`, meta) + `
+  <div class="card focus">
+    <div class="eyebrow" style="color:var(--muted)">Adesso</div>
+    ${nextTask ? `<h2 style="font-size:1.75rem;margin:.25rem 0 .2rem">${esc(nextTask.subject)} — ${esc(nextTask.title)}</h2>
+      <p class="muted">${nextTask.kind === "ripasso" ? "Ripasso" : "Studio"} · ~${nextTask.min} min dal piano di studio${dueCards(nextTask.subject).length ? ` · poi ${dueCards(nextTask.subject).length} flashcard` : ""}</p>`
+      : `<h2 style="font-size:1.75rem;margin:.25rem 0 .2rem">Per oggi hai finito.</h2><p class="muted">Tutte le attività del piano sono spuntate. Puoi ripassare le flashcard o riposarti.</p>`}
+    ${ex ? `<div class="row" style="margin:1rem 0 1.1rem;gap:1rem"><div class="progress" style="flex:0 1 420px;min-width:120px"><i style="width:${ready}%"></i></div>
+      <span class="muted small">Prossimo esame: ${esc(ex.subject || ex.title)} ${inDays(diffDays(ex.date))} · pronto al ${ready}%</span></div>` : ""}
+    <div class="row">${nextTask ? `<button class="btn primary" data-act="session" data-sub="${esc(nextTask.subject)}" data-task="${nextTask.id}">${ic("play")}Avvia sessione</button>` : ""}
+      <button class="btn" data-go="piano" data-sub="${esc(nextTask ? nextTask.subject : S.subject)}">Apri il piano</button></div>
+  </div>
+  <div class="grid g3 section">
+    ${stat("clock","Studio di oggi", hm(planned), `${tasks.length} attività · budget di ${hm(S.minutesPerDay)}`, planned > S.minutesPerDay)}
+    ${stat("cards","Da ripassare", due, "flashcard in scadenza")}
+    ${stat("flame","Ultimi 7 giorni", hm(week), streak ? `${streak} giorni di fila` : "riparti oggi")}
+  </div>
+  <div class="grid g-side section">
+    <div class="stack">
+      <div class="card"><h3>${ic("clock")}In agenda oggi</h3>
+        <div class="list" style="margin-top:.4rem">${lez.length + evs.length ? [...lez.map(l => ({time:l.start, k:"lezione", t:l.subject, s:`${l.start}–${l.end}${l.room ? " · " + l.room : ""}${l.teacher ? " · " + l.teacher : ""}`})),
+          ...evs.map(e => ({time:e.start || "—", k:kindKey(e.kind), t:e.title, s:[kindName(e.kind), e.subject, e.place].filter(Boolean).join(" · ")}))].sort((a,b) => a.time.localeCompare(b.time)).map(x =>
+          `<div class="li k-${x.k}"><span class="time">${esc(x.time)}</span><span class="dot"></span><div class="body"><div class="t">${esc(x.t)}</div><div class="s">${esc(x.s)}</div></div></div>`).join("")
+          : `<p class="muted" style="padding:.6rem 0">Oggi niente lezioni né scadenze.</p>`}</div></div>
+      <div class="card"><h3>${ic("plan")}Da studiare oggi</h3>
+        ${order.length ? order.map(s => `<div style="margin-top:.8rem"><div class="row" style="justify-content:space-between"><b>${esc(s)}</b>
+          <span class="chip ${diffDays(S.subjects[s].plan.exam) <= 7 ? "acc" : ""}">${isSup() ? "verifica" : "esame"} ${inDays(diffDays(S.subjects[s].plan.exam))}</span></div>
+          ${bySub[s].map(x => taskRow(x, s)).join("")}</div>`).join("") : `<p class="muted" style="padding:.6rem 0">Nessuna attività per oggi.</p>`}
+      </div>
+    </div>
+    <div class="card" style="align-self:start"><h3>${ic("target")}Prossimi impegni</h3>
+      <div class="list" style="margin-top:.4rem">${upcoming.map(e => `<div class="li k-${kindKey(e.kind)}"><span class="dot"></span><div class="body"><div class="t">${esc(e.title)}</div>
+        <div class="s">${[kindName(e.kind), e.subject, longDate(e.date), e.start, inDays(diffDays(e.date))].filter(Boolean).map(esc).join(" · ")}</div></div></div>`).join("") || `<p class="muted">Niente in vista.</p>`}</div>
+      <button class="btn ghost sm" data-go="agenda" style="margin-top:.4rem">Apri l'agenda ${ic("right")}</button>
+    </div>
+  </div>`;
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function taskRow(t, subject, withPlay=true) {
+  return `<label class="task ${t.done ? "done" : ""}"><input type="checkbox" data-task="${t.id}" data-sub="${esc(subject)}" ${t.done ? "checked" : ""}>
+    <div class="body"><div class="t">${esc(t.title)}</div><div class="s">${t.kind === "ripasso" ? "Ripasso" : "Studio"} · ${esc(t.loc)} · ~${t.min} min</div></div>
+    ${withPlay && !t.done ? `<button class="play" data-act="session" data-sub="${esc(subject)}" data-task="${t.id}" title="Avvia una sessione su questa attività" aria-label="Avvia sessione">${ic("play")}</button>` : ""}</label>`;
+}
+const KINDS = {esame:["Esame","esame"], scadenza:["Scadenza","scadenza"], ricevimento:["Ricevimento / seminario","ricevimento"], lezione:["Lezione","lezione"]};
+const kindKey = k => (KINDS[k] || KINDS.scadenza)[1];
+const kindName = k => isSup() ? ({esame:"Verifica / interrogazione", scadenza:"Compito", ricevimento:"Colloquio / evento"}[k] || k) : (KINDS[k] || [k])[0];
+
+/* ===================== PIANO ===================== */
+function vPiano() {
+  const d = cur(), p = d.plan;
+  if (!p) return hero(`Piano · ${esc(S.subject)}`, `Un piano <em>su misura.</em>`, "Scegli la data dell'esame e i giorni in cui studi: StudyRAG divide documenti e pagine dei libri in attività, tenendo conto delle lezioni in agenda.") +
+    `<div class="card"><h3>${ic("plan")}Crea il piano di ${esc(S.subject)}</h3>
+     <div class="grid g3" style="margin-top:1rem"><label class="field"><span>${isSup() ? "Data della verifica" : "Data dell'esame"}</span><input class="input" type="date" id="planDate" value="${(S.events.find(e => e.subject === S.subject && e.kind === "esame") || {}).date || off(21)}" min="${off(2)}"></label>
+     <label class="field"><span>Minuti al giorno</span><input class="input" type="number" id="planMin" value="${S.minutesPerDay}" min="30" step="15"></label>
+     <div class="field"><span>&nbsp;</span><button class="btn primary" data-act="mkplan">${ic("spark")}Crea il piano</button></div></div>
+     <p class="muted small" style="margin-top:.8rem">Usa ${d.docs.length} ${d.docs.length === 1 ? "documento" : "documenti"} dell'archivio${S.books.some(b => b.subject === S.subject) ? " e il libro della biblioteca" : ""}.</p></div>`;
+  const ps = planStats(p), left = diffDays(p.exam);
+  const shown = UI.allDays ? p.days : p.days.filter(x => diffDays(x.date) >= 0).slice(0, 5);
+  const n = subjNames().filter(s => S.subjects[s].plan && diffDays(S.subjects[s].plan.exam) >= 0).length;
+  return hero(`Piano · ${esc(S.subject)}`, `${isSup() ? "Verifica" : "Esame"} il <em>${parseISO(p.exam).toLocaleDateString("it-IT")}.</em>`,
+    `Circa ${hm(ps.left / Math.max(1, p.days.filter(x => diffDays(x.date) >= 0).length))} al giorno per questa materia, su un budget di ${hm(S.minutesPerDay)}${n > 1 ? ` diviso con ${n - 1} ${n === 2 ? "materia" : "materie"}` : ""}.`,
+    "Lun, Mar, Mer, Gio, Ven, Sab · libri e appunti · adattato all'agenda") + `
+  <div class="grid g3">${stat("target", isSup() ? "Verifica" : "Esame", `${left}<small> gg</small>`, "giorni rimanenti", true)}
+    ${stat("plan","Completate", `${Math.round(ps.pct*100)}%`, `${ps.done.length} di ${ps.all.length} attività`)}
+    ${stat("clock","Da studiare", hm(ps.left), "tempo stimato rimanente")}</div>
+  <div class="row section" style="justify-content:space-between"><div class="row"><button class="btn" data-act="replan">${ic("refresh")}Ripianifica da oggi</button>
+    <label class="row small"><input type="checkbox" id="allDays" ${UI.allDays ? "checked" : ""}>Mostra tutti i giorni</label></div>
+    <button class="btn ghost danger sm" data-act="delplan">${ic("trash")}Elimina piano</button></div>
+  <div class="stack section">${shown.map(day => {
+    const dd = parseISO(day.date), done = day.tasks.filter(t => t.done).length, mins = day.tasks.reduce((a,t) => a + t.min, 0);
+    const ag = lessonsOn(day.date).map(l => `${l.start} ${l.subject}`).concat(eventsOn(day.date).map(e => `${e.start || ""} ${e.title}`.trim()));
+    const isT = day.date === iso(TODAY);
+    return `<div class="card ${isT ? "focus" : ""}"><div class="pday ${isT ? "is-today" : ""}"><div class="date"><b>${dd.getDate()}</b><span>${GG[wd(dd)]}</span></div>
+      <div><div class="row"><h3 style="font-size:1.1rem">Studio</h3>${isT ? `<span class="chip acc">oggi</span>` : ""}</div>
+      <div class="muted small">${done}/${day.tasks.length} attività · ${hm(mins)}</div>${ag.length ? `<div class="muted small">In agenda: ${esc(ag.join(" · "))}</div>` : ""}
+      <div class="progress" style="margin-top:.5rem;height:5px"><i style="width:${done / day.tasks.length * 100}%"></i></div></div>
+      <div class="tasks">${day.tasks.map(t => taskRow(t, S.subject)).join("")}</div></div></div>`; }).join("") || `<div class="card empty">${ic("check")}Piano completato.</div>`}
+  </div>`;
+}
+
+/* ===================== QUIZ ===================== */
+function vQuiz() {
+  const d = cur(), due = dueCards(S.subject);
+  let body = "";
+  if (UI.quizTab === "genera") body = `<div class="card"><h3>${ic("spark")}Genera dai tuoi documenti</h3>
+      <p class="lead">L'AI locale (Ollama) legge i documenti di ${esc(S.subject)} e scrive domande a scelta multipla con spiegazione, oppure flashcard.</p>
+      ${d.docs.length ? `<div class="grid g3" style="margin-top:1rem"><label class="field"><span>Documento</span><select class="input" id="genDoc">${d.docs.map(x => `<option>${esc(x.name)}</option>`).join("")}</select></label>
+      <label class="field"><span>Tipo</span><select class="input" id="genKind"><option value="quiz">Quiz (5 domande)</option><option value="cards">Flashcard</option></select></label>
+      <div class="field"><span>&nbsp;</span><button class="btn primary" data-act="genquiz" ${UI.job ? "disabled" : ""}>${ic("spark")}Genera</button></div></div>`
+      : `<div class="empty">${ic("doc")}Carica prima un documento in Archivio.<button class="btn" data-go="archivio">Apri l'archivio</button></div>`}</div>`;
+  else if (UI.quizTab === "quiz") body = quizBlock(d);
+  else if (UI.quizTab === "flash") body = flashBlock(due);
+  else body = simBlock(d);
+  return hero(`Quiz · ${esc(S.subject)}`, `Verifica cosa sai, <em>non cosa hai letto.</em>`, "Domande e flashcard generate dai tuoi documenti. Le carte sbagliate tornano prima, quelle che sai si allontanano nel tempo.") + `
+  <div class="grid g3">${stat("quiz","Quiz", d.quizzes.length, "generati")}${stat("cards","Flashcard", d.cards.length, "nel mazzo")}${stat("flame","Oggi", due.length, "carte da ripassare", due.length > 0)}</div>
+  <div class="row section"><div class="tabs">${[["genera","Genera","spark"],["quiz","Quiz","quiz"],["flash","Flashcard","cards"],["sim","Simulazione d'esame","timer"]].map(([k,l,i]) =>
+    `<button data-qtab="${k}" aria-pressed="${UI.quizTab === k}">${ic(i)}${l}</button>`).join("")}</div></div>
+  <div class="section">${body}</div>`;
+}
+function quizBlock(d) {
+  if (!d.quizzes.length) return `<div class="card empty">${ic("quiz")}<b>Nessun quiz per ${esc(S.subject)}.</b>Generane uno dai documenti in pochi secondi.<button class="btn primary" data-qtab="genera">${ic("spark")}Genera un quiz</button></div>`;
+  UI.qi = Math.min(UI.qi, d.quizzes.length - 1);
+  const qz = d.quizzes[UI.qi];
+  if (!UI.qState || UI.qState.id !== qz.id) UI.qState = {id:qz.id, i:0, pick:null, score:0};
+  const st = UI.qState;
+  const pick = `<div class="row" style="margin-bottom:1rem"><label class="field" style="flex:1"><span>Quiz</span><select class="input" id="qPick">${d.quizzes.map((q, i) =>
+    `<option value="${i}" ${i === UI.qi ? "selected" : ""}>${esc(q.title)} · ${q.qs.length} domande · record ${q.best}/${q.qs.length}</option>`).join("")}</select></label></div>`;
+  if (st.i >= qz.qs.length) {
+    const pct = st.score / qz.qs.length;
+    return pick + `<div class="card" style="text-align:center;padding:2rem 1rem"><div class="eyebrow">Risultato</div><h2 style="font-size:2.6rem;margin:.3rem 0">${st.score}/${qz.qs.length}</h2>
+      <p class="muted">${pct >= .8 ? "Ottimo: ci sei." : pct >= .6 ? "Buono: ripassa gli errori." : "Da rivedere: riapri gli appunti e riprova."}${st.score > qz.best - 0 && st.newBest ? " Nuovo record." : ""}</p>
+      <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn primary" data-act="qrestart">${ic("refresh")}Rifai il quiz</button></div></div>`;
+  }
+  return pick + `<div class="row small" style="justify-content:space-between;margin-bottom:.4rem"><span>Domanda ${st.i + 1} di ${qz.qs.length}</span><span class="muted">${st.score} corrette</span></div>
+    <div class="progress" style="margin-bottom:1rem"><i style="width:${st.i / qz.qs.length * 100}%"></i></div>${questionCard(qz.qs[st.i], st.i, st.pick, "qans")}
+    ${st.pick !== null ? `<div class="row" style="justify-content:flex-end;margin-top:1rem"><button class="btn primary" data-act="qnext">${st.i + 1 < qz.qs.length ? "Prossima domanda" : "Vedi il risultato"} ${ic("right")}</button></div>` : ""}`;
+}
+function questionCard(q, i, pick, act) {
+  return `<div class="card"><div class="qhead"><span class="n">${String(i + 1).padStart(2,"0")}</span><span>${esc(q.q)}</span></div>
+    <div class="opts">${q.o.map((o, j) => {
+      const cls = pick === null ? "" : j === q.a ? "right" : j === pick ? "wrong" : "";
+      return `<button class="opt ${cls}" data-act="${act}" data-j="${j}" ${pick !== null ? "disabled" : ""}><span class="l">${"ABCD"[j]}</span><span>${esc(o)}</span></button>`; }).join("")}</div>
+    ${pick !== null ? `<div class="explain"><b>${pick === q.a ? "Giusto." : `Risposta corretta: ${"ABCD"[q.a]}.`}</b> ${esc(q.e)}</div>` : ""}</div>`;
+}
+function flashBlock(due) {
+  const d = cur();
+  if (!d.cards.length) return `<div class="card empty">${ic("cards")}<b>Nessuna flashcard per ${esc(S.subject)}.</b><button class="btn primary" data-qtab="genera">${ic("spark")}Genera flashcard</button></div>`;
+  if (!due.length) {
+    const next = d.cards.map(c => c.due).sort()[0];
+    return `<div class="card empty">${ic("check")}<b>Ripasso di oggi finito.</b>La prossima carta torna ${inDays(diffDays(next))}.<button class="btn" data-act="cardsall">Ripassa comunque tutto il mazzo</button></div>`;
+  }
+  const c = due[0];
+  return `<div class="row small" style="justify-content:space-between;margin-bottom:.6rem"><span>${due.length} ${due.length === 1 ? "carta" : "carte"} da ripassare</span><span class="muted">Scatola ${c.box + 1} di 5 · clicca la carta per girarla</span></div>
+    <div class="flash ${UI.flipped ? "flipped" : ""}" data-act="flip" role="button" tabindex="0" aria-label="Gira la carta"><div class="inner">
+      <div class="face"><h2>${esc(c.front)}</h2></div><div class="face back"><p>${esc(c.back)}</p></div></div></div>
+    <div class="row" style="justify-content:center;margin-top:1rem">${UI.flipped ? `<button class="btn" data-act="cardno" data-id="${c.id}">Non la sapevo</button><button class="btn primary" data-act="cardyes" data-id="${c.id}">${ic("check")}La sapevo</button>`
+      : `<button class="btn" data-act="flip">Mostra la risposta</button>`}</div>`;
+}
+function simBlock(d) {
+  const all = d.quizzes.flatMap(q => q.qs);
+  if (all.length < 3) return `<div class="card empty">${ic("timer")}<b>Servono almeno 3 domande.</b>Genera un quiz per ${esc(S.subject)} e la simulazione le mescola con un tempo limite.<button class="btn primary" data-qtab="genera">${ic("spark")}Genera un quiz</button></div>`;
+  const sim = UI.sim;
+  if (!sim || sim.sub !== S.subject) return `<div class="card"><h3>${ic("timer")}Simulazione d'esame</h3><p class="lead">Tutte le domande di ${esc(S.subject)} (${all.length}) in ordine casuale, con il tempo che scorre. Alla fine il voto in ${isSup() ? "decimi" : "trentesimi"}.</p>
+    <div class="row" style="margin-top:1rem"><label class="field"><span>Tempo</span><select class="input" id="simMin"><option value="5">5 minuti</option><option value="10" selected>10 minuti</option><option value="20">20 minuti</option></select></label>
+    <div class="field"><span>&nbsp;</span><button class="btn primary" data-act="simstart">${ic("play")}Inizia</button></div></div></div>`;
+  const left = Math.max(0, Math.round((sim.end - Date.now()) / 1000));
+  if (sim.i >= sim.qs.length || left === 0) {
+    const v = isSup() ? Math.max(2, Math.round(sim.score / sim.qs.length * 10 * 2) / 2) : Math.round(sim.score / sim.qs.length * 30);
+    const pass = isSup() ? v >= 6 : v >= 18;
+    return `<div class="card" style="text-align:center;padding:2rem 1rem"><div class="eyebrow">${left === 0 && sim.i < sim.qs.length ? "Tempo scaduto" : "Simulazione finita"}</div>
+      <h2 style="font-size:3rem;margin:.3rem 0;color:${pass ? "var(--ok)" : "var(--danger)"}">${isSup() ? nf(v, v % 1 ? 1 : 0) : v}<small style="font-size:1.1rem;color:var(--muted)">/${isSup() ? 10 : 30}</small></h2>
+      <p class="muted">${sim.score} risposte giuste su ${sim.qs.length}. ${pass ? "Promosso." : "Non ancora sufficiente."}</p>
+      <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn" data-act="simreset">Nuova simulazione</button></div></div>`;
+  }
+  return `<div class="row" style="justify-content:space-between;margin-bottom:.6rem"><span class="small">Domanda ${sim.i + 1} di ${sim.qs.length}</span>
+    <span class="chip ${left < 60 ? "bad" : "acc"} num" id="simClock">${ic("timer")}${Math.floor(left/60)}:${String(left % 60).padStart(2,"0")}</span></div>
+    ${questionCard(sim.qs[sim.i], sim.i, sim.pick, "simans")}
+    ${sim.pick !== null ? `<div class="row" style="justify-content:flex-end;margin-top:1rem"><button class="btn primary" data-act="simnext">Avanti ${ic("right")}</button></div>` : ""}`;
+}
+
+/* ===================== MAPPE ===================== */
+function layoutMap(m) {
+  const by = Object.fromEntries(m.nodi.map(n => [n.id, n]));
+  const kids = {}, parent = {};
+  for (const [a, b] of m.rel) if (!(b in parent) && by[a] && by[b] && by[a].l < by[b].l) { parent[b] = a; (kids[a] ||= []).push(b); }
+  const root = m.nodi.find(n => n.l === 0).id;
+  const W = t => Math.round(t.length * 8.1 + 34), H = 40, gapY = 18;
+  const colW = {}; m.nodi.forEach(n => colW[n.l] = Math.max(colW[n.l] || 0, W(n.e)));
+  const xs = {0:20}; const maxL = Math.max(...m.nodi.map(n => n.l));
+  for (let l = 1; l <= maxL; l++) xs[l] = xs[l-1] + (colW[l-1] || 0) + 150;
+  const pos = {}; let row = 0;
+  (function place(id) { const ch = kids[id] || [];
+    if (!ch.length) { pos[id] = row * (H + gapY) + 20; row++; return; }
+    ch.forEach(place); pos[id] = (pos[ch[0]] + pos[ch[ch.length - 1]]) / 2; })(root);
+  const width = xs[maxL] + colW[maxL] + 30, height = row * (H + gapY) + 30;
+  const P = id => ({x:xs[by[id].l], y:pos[id], w:W(by[id].e), h:H});
+  let edges = "";
+  for (const [a, b, v] of m.rel) {
+    if (pos[a] === undefined || pos[b] === undefined) continue;
+    const A = P(a), B = P(b), tree = parent[b] === a;
+    let x1 = A.x + A.w, y1 = A.y + H/2, x2 = B.x, y2 = B.y + H/2;
+    if (!tree && B.x <= A.x) { x1 = A.x + A.w / 2; y1 = A.y + (B.y < A.y ? 0 : H); x2 = B.x + B.w / 2; y2 = B.y + (B.y < A.y ? H : 0); }
+    const mx = (x1 + x2) / 2;
+    const d = tree || B.x > A.x ? `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 6},${y2}` : `M${x1},${y1} C${x1 + 60},${(y1+y2)/2} ${x2 + 60},${(y1+y2)/2} ${x2},${y2}`;
+    edges += `<path class="medge ${tree ? "" : "x"}" d="${d}" marker-end="url(#ah)"/><text class="mlabel" x="${tree || B.x > A.x ? mx : Math.max(x1,x2) + 50}" y="${(y1 + y2) / 2 - 6}" text-anchor="middle">${esc(v)}</text>`;
+  }
+  const nodes = m.nodi.map(n => { const p = P(n.id);
+    return `<g class="mnode l${Math.min(n.l,2)} ${UI.mapSel === n.id ? "sel" : ""}" data-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.e)}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${H}" rx="${n.l < 2 ? 10 : 12}"/>
+      <text x="${p.x + p.w/2}" y="${p.y + 25.5}" text-anchor="middle">${esc(n.e)}</text></g>`; }).join("");
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Mappa concettuale: ${esc(m.titolo)}">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>${edges}${nodes}</svg>`;
+}
+function vMappe() {
+  const d = cur();
+  const head = hero(`Mappe · ${esc(S.subject)}`, `Vedi come si <em>collegano i concetti.</em>`, "L'AI estrae concetti e relazioni dai tuoi documenti e li dispone in una mappa navigabile, con definizioni e schema testuale.");
+  if (!d.maps.length) return head + `<div class="card empty">${ic("map")}<b>Nessuna mappa per ${esc(S.subject)}.</b>${d.docs.length ? "Creala da un documento dell'archivio." : "Carica prima un documento in Archivio."}
+    ${d.docs.length ? `<button class="btn primary" data-act="genmap" ${UI.job ? "disabled" : ""}>${ic("spark")}Crea la mappa da ${esc(d.docs[0].name)}</button>` : `<button class="btn" data-go="archivio">Apri l'archivio</button>`}</div>`;
+  UI.mapIdx = Math.min(UI.mapIdx, d.maps.length - 1);
+  const m = d.maps[UI.mapIdx];
+  const sel = UI.mapSel && m.nodi.find(n => n.id === UI.mapSel);
+  let body;
+  if (UI.mapTab === "mappa") body = `<div class="canvas">${layoutMap(m)}</div>
+    <div class="card" style="margin-top:.8rem">${sel ? `<div class="row"><b style="font-family:var(--f-head);font-size:1.15rem">${esc(sel.e)}</b><span class="chip">livello ${sel.l}</span></div><p style="margin-top:.3rem">${esc(sel.n)}</p>
+      <p class="muted small" style="margin-top:.4rem">${m.rel.filter(r => r[0] === sel.id || r[1] === sel.id).map(r => { const by = id => m.nodi.find(n => n.id === id).e; return `${esc(by(r[0]))} <i>${esc(r[2])}</i> ${esc(by(r[1]))}`; }).join(" · ")}</p>`
+      : `<p class="muted">Clicca un concetto per leggerne la definizione e le relazioni.</p>`}</div>`;
+  else if (UI.mapTab === "schema") {
+    const kids = {}; const seen = new Set();
+    for (const [a,b,v] of m.rel) if (!seen.has(b) && m.nodi.find(n => n.id === a).l < m.nodi.find(n => n.id === b).l) { seen.add(b); (kids[a] ||= []).push([b,v]); }
+    const by = id => m.nodi.find(n => n.id === id);
+    const tree = id => (kids[id] || []).length ? `<ul>${kids[id].map(([b,v]) => `<li><span class="v">${esc(v)}</span> <b>${esc(by(b).e)}</b> — ${esc(by(b).n)}${tree(b)}</li>`).join("")}</ul>` : "";
+    const root = m.nodi.find(n => n.l === 0);
+    body = `<div class="card schema"><b style="font-family:var(--f-head);font-size:1.2rem">${esc(root.e)}</b> <span class="muted">— ${esc(root.n)}</span>${tree(root.id)}</div>`;
+  } else body = `<div class="card"><div class="list">${[...m.nodi].sort((a,b) => a.e.localeCompare(b.e, "it")).map(n => `<div class="li"><div class="body"><div class="t">${esc(n.e)}</div><div class="s">${esc(n.n)}</div></div></div>`).join("")}</div></div>`;
+  return head + `<div class="row" style="align-items:end"><label class="field" style="flex:1 1 300px"><span>Mappe salvate (${d.maps.length})</span><select class="input" id="mapPick">${d.maps.map((x, i) =>
+      `<option value="${i}" ${i === UI.mapIdx ? "selected" : ""}>${esc(x.titolo)} · ${x.nodi.length} concetti · ${esc(x.source)}</option>`).join("")}</select></label>
+    <button class="btn" data-act="genmap" ${UI.job ? "disabled" : ""}>${ic("plus")}Nuova mappa</button></div>
+  <div class="section"><div class="eyebrow" style="color:var(--muted)">${esc(m.source)}</div><h2 style="font-size:1.6rem;margin:.2rem 0 .5rem">${esc(m.titolo)}</h2>
+    <div class="row"><span class="chip acc">${m.nodi.length} concetti</span><span class="chip">${m.rel.length} relazioni</span><span class="chip">dettaglio medio</span><span class="chip">${parseISO(m.created).toLocaleDateString("it-IT")}</span></div></div>
+  <div class="row section"><div class="tabs">${[["mappa","Mappa"],["schema","Schema"],["glossario","Glossario"]].map(([k,l]) => `<button data-mtab="${k}" aria-pressed="${UI.mapTab === k}">${l}</button>`).join("")}</div></div>
+  <div class="section">${body}</div>`;
+}
+
+/* ===================== BIBLIOTECA ===================== */
+function vBiblioteca() {
+  const books = S.books;
+  const pages = books.reduce((a,b) => a + b.done, 0), tot = books.reduce((a,b) => a + b.pages, 0);
+  return hero("Biblioteca", `I tuoi libri, <em>pagina per pagina.</em>`, "Segna dove sei arrivato: il piano di studio divide le pagine che mancano tra i giorni che restano.") + `
+  <div class="grid g3">${stat("book","Libri", books.length, "in biblioteca")}${stat("layers","Pagine lette", pages, `di ${tot}`)}${stat("target","Avanzamento", `${tot ? Math.round(pages / tot * 100) : 0}%`, "su tutti i libri", true)}</div>
+  <div class="row section" style="justify-content:flex-end"><button class="btn primary" data-act="addbook">${ic("plus")}Aggiungi un libro</button></div>
+  <div class="grid g2 section">${books.map(b => { const pct = Math.round(b.done / b.pages * 100); return `<div class="card"><div class="row" style="justify-content:space-between;align-items:start;flex-wrap:nowrap">
+      <div style="min-width:0"><h3 style="font-size:1.15rem">${esc(b.title)}</h3><p class="muted small">${esc(b.author)} · ${esc(b.subject || "nessuna materia")}</p></div><span class="chip ${pct >= 100 ? "ok" : "acc"}">${pct}%</span></div>
+      <div class="progress" style="margin:.9rem 0 .4rem"><i style="width:${pct}%"></i></div>
+      <div class="row" style="justify-content:space-between"><span class="small num">pagina ${b.done} di ${b.pages}</span>
+      <div class="row"><input class="input num" type="number" min="1" max="${b.pages}" placeholder="+ pagine" style="width:7rem;min-height:2rem;padding:.25rem .55rem" id="pg-${b.id}" aria-label="Pagine lette oggi">
+      <button class="btn sm" data-act="readpages" data-id="${b.id}">Segna</button></div></div></div>`; }).join("") || `<div class="card empty">${ic("book")}Nessun libro.</div>`}</div>`;
+}
+
+/* ===================== AGENDA ===================== */
+function vAgenda() {
+  const mon = addD(TODAY, -wd(TODAY) + UI.week * 7);
+  const hasSat = S.lessons.some(l => l.wd === 5) || S.events.some(e => { const k = diffDays(e.date) - diffDays(iso(mon)); return k === 5; });
+  const days = Array.from({length:hasSat ? 6 : 5}, (_, i) => addD(mon, i));
+  const lastD = addD(mon, 6);
+  const range = `${mon.getDate()} ${mon.getMonth() !== lastD.getMonth() ? MESI[mon.getMonth()] + " " : ""}– ${lastD.getDate()} ${MESI[lastD.getMonth()]} ${lastD.getFullYear()}`;
+  const list = S.events.filter(e => UI.showPast || diffDays(e.date) >= 0).sort((a,b) => a.date.localeCompare(b.date));
+  return hero("Agenda", `La tua settimana, <em>senza sorprese.</em>`, `Orario delle lezioni, ${isSup() ? "verifiche e compiti" : "esami e scadenze"}. Il piano di studio ne tiene conto: meno studio nei giorni pieni, giorni d'esame liberi.`) + `
+  <div class="row" style="justify-content:space-between"><div class="row"><button class="btn" data-act="wk" data-d="-1" aria-label="Settimana precedente">${ic("left")}</button>
+    <button class="btn" data-act="wk" data-d="0" ${UI.week === 0 ? "disabled" : ""}>Oggi</button><button class="btn" data-act="wk" data-d="1" aria-label="Settimana successiva">${ic("right")}</button>
+    <b style="font-family:var(--f-head);font-size:1.2rem;margin-left:.4rem">${range}</b></div>
+    <div class="row"><button class="btn" data-act="addlesson">${ic("plus")}Lezione</button><button class="btn" data-act="addevent">${ic("plus")}Evento</button></div></div>
+  <p class="muted small" style="margin:.8rem 0">Clicca una lezione o un evento per vederne i dettagli.</p>
+  <div class="week ${hasSat ? "w6" : ""}">${days.map(d => { const s = iso(d);
+    const items = [...lessonsOn(s).map(l => ({t:l.start, h:`<button class="slot k-lezione" data-lesson="${l.id}"><b>${l.start}–${l.end}</b> ${esc(l.subject)}${l.room ? " · " + esc(l.room) : ""}</button>`})),
+      ...eventsOn(s).map(e => ({t:e.start || "00", h:`<button class="slot k-${kindKey(e.kind)}" data-event="${e.id}">${e.start ? `<b>${e.start}${e.end ? "–" + e.end : ""}</b> ` : ""}${esc(e.title)}${e.subject ? " · " + esc(e.subject) : ""}</button>`}))].sort((a,b) => a.t.localeCompare(b.t));
+    const st = allTasksOn(s).reduce((a,t) => a + (t.done ? 0 : t.min), 0);
+    return `<div class="day ${s === iso(TODAY) ? "today" : ""}"><div class="dh"><b>${d.getDate()}</b><span>${GG[wd(d)]}</span></div>${items.map(x => x.h).join("")}
+      ${st ? `<div class="slot studio">studio<br>~${st} min dal piano</div>` : ""}${!items.length && !st ? `<span class="muted small" style="padding:.2rem">Libero</span>` : ""}</div>`; }).join("")}</div>
+  <div class="legend">${[["lezione","Lezione"],["esame", isSup() ? "Verifica / interrogazione" : "Esame"],["scadenza", isSup() ? "Compito" : "Scadenza"],["ricevimento", isSup() ? "Colloquio / evento" : "Ricevimento / seminario"],["studio","Studio dal piano"]].map(([k,l]) =>
+    `<span class="k-${k}"><span class="dot"></span>${l}</span>`).join("")}</div>
+  <div class="row section"><div class="tabs">${[["eventi","Eventi","calendar"],["orario","Orario lezioni","clock"]].map(([k,l,i]) => `<button data-agtab="${k}" aria-pressed="${UI.agTab === k}">${ic(i)}${l}</button>`).join("")}</div>
+    ${UI.agTab === "eventi" ? `<label class="row small"><input type="checkbox" id="showPast" ${UI.showPast ? "checked" : ""}>Mostra anche quelli passati</label>` : ""}</div>
+  <div class="card section">${UI.agTab === "eventi" ? `<div class="list">${list.map(e => `<div class="li k-${kindKey(e.kind)}"><span class="dot"></span><div class="body"><div class="t">${esc(e.title)}</div>
+      <div class="s">${[kindName(e.kind), e.subject, longDate(e.date), e.start && `${e.start}${e.end ? "–" + e.end : ""}`, e.place, inDays(diffDays(e.date))].filter(Boolean).map(esc).join(" · ")}</div></div>
+      <button class="btn ghost sm" data-act="delevent" data-id="${e.id}" aria-label="Elimina ${esc(e.title)}">${ic("trash")}</button></div>`).join("") || `<p class="muted">Nessun evento.</p>`}</div>`
+    : `<div class="list">${[0,1,2,3,4,5].map(w => { const ls = S.lessons.filter(l => l.wd === w).sort((a,b) => a.start.localeCompare(b.start)); return ls.length ? `<div class="li"><span class="time" style="width:6.5rem">${cap(GIORNI[w])}</span><div class="body">${ls.map(l =>
+      `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b class="num">${l.start}–${l.end}</b> ${esc(l.subject)} <span class="muted small">${esc([l.room, l.teacher].filter(Boolean).join(" · "))}</span></span>
+      <button class="btn ghost sm" data-act="dellesson" data-id="${l.id}" aria-label="Elimina lezione">${ic("trash")}</button></div>`).join("")}</div></div>` : ""; }).join("")}</div>`}</div>`;
+}
+
+/* ===================== ARCHIVIO ===================== */
+function blocksOf(text) { return text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean); }
+function vArchivio() {
+  const d = cur();
+  const blocks = d.docs.reduce((a,x) => a + blocksOf(x.text).length, 0);
+  const q = UI.search.trim();
+  let results = "";
+  if (q.length >= 2) {
+    const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+    const hits = [];
+    for (const [s, sd] of Object.entries(S.subjects)) for (const x of sd.docs) for (const b of blocksOf(x.text)) {
+      const low = b.toLowerCase(); const score = words.reduce((a,w) => a + (low.split(w).length - 1), 0);
+      if (score) hits.push({s, doc:x, b, score: score + (s === S.subject ? .5 : 0)});
+    }
+    hits.sort((a,b) => b.score - a.score);
+    const re = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+    results = `<div class="card section"><h3>${ic("search")}${hits.length ? `${Math.min(hits.length, 8)} risultati per «${esc(q)}»` : `Nessun risultato per «${esc(q)}»`}</h3>
+      <div style="margin-top:.4rem">${hits.slice(0, 8).map(h => `<div class="hit"><div class="small muted"><b>${esc(h.doc.name)}</b> · ${esc(h.s)}</div>
+      <p style="margin-top:.25rem">${esc(h.b.length > 320 ? h.b.slice(0, 320) + "…" : h.b).replace(re, "<mark>$1</mark>")}</p></div>`).join("")}</div></div>`;
+  }
+  const extIcon = {pdf:"PDF", docx:"DOCX", pptx:"PPTX", txt:"TXT", md:"MD", html:"HTML", png:"IMG", jpg:"IMG", jpeg:"IMG", csv:"CSV", xlsx:"XLSX"};
+  return hero(`Archivio · ${esc(S.subject)}`, `I tuoi appunti, <em>in un posto solo.</em>`, "Carica dispense, slide, pagine web e foto di appunti: diventano quiz, flashcard, mappe e sessioni del piano di studio.") + `
+  <div class="grid g3">${stat("doc","Documenti", d.docs.length, "nella materia")}${stat("layers","Sezioni", d.docs.length, "pagine, slide, fogli e immagini lette")}${stat("db","Blocchi", blocks, "parti di testo pronte per quiz e mappe", true)}</div>
+  <div class="card section"><h3>${ic("search")}Cerca nei tuoi appunti</h3>
+    <div class="row" style="margin-top:.7rem;flex-wrap:nowrap"><input class="input" id="searchBox" type="search" placeholder="Es. entropia, Fourier, discriminante…" value="${esc(UI.search)}" autocomplete="off"></div>
+    <p class="muted small" style="margin-top:.4rem">Cerca in tutte le materie. Prova: ${(isSup() ? ["discriminante","Medici"] : ["entropia","Fourier","pH"]).map(w => `<button class="btn ghost sm" data-act="try" data-q="${w}" style="padding:0 .3rem;min-height:0">${w}</button>`).join(" ")}</p></div>
+  ${results}
+  <div class="card section"><h3>${ic("upload")}Aggiungi materiale</h3>
+    <p class="lead">Dispense, slide, pagine web salvate, tabelle e foto di appunti o lavagne. Le immagini vengono lette dall'AI: testo (anche scritto a mano) e descrizione di schemi e grafici diventano ricercabili.</p>
+    <div class="row" style="margin:.8rem 0">${["Documenti PDF · DOCX · PPTX","Web e testo HTML · MD · TXT","Tabelle XLSX · CSV","Immagini PNG · JPG · WEBP"].map(x => `<span class="chip">${x}</span>`).join("")}</div>
+    <label class="drop" id="drop" for="fileIn">${ic("upload")}<b style="color:var(--ink)">Trascina qui i file o clicca per sceglierli</b><span class="small">Nella demo i file di testo (.txt, .md, .html) vengono letti davvero e finiscono nella ricerca. Restano solo nel tuo browser.</span></label>
+    <input type="file" id="fileIn" multiple hidden accept=".txt,.md,.html,.htm,.pdf,.docx,.pptx,.csv,.xlsx,.png,.jpg,.jpeg,.webp"></div>
+  <div class="card section"><h3>${ic("folder")}Documenti di ${esc(S.subject)}</h3><div class="list" style="margin-top:.3rem">${d.docs.map(x =>
+    `<div class="li"><span class="chip">${extIcon[x.ext] || x.ext.toUpperCase()}</span><div class="body"><div class="t" style="overflow-wrap:anywhere">${esc(x.name)}</div>
+    <div class="s">${(x.size / 1024).toLocaleString("it-IT", {maximumFractionDigits:1})} KB · ${blocksOf(x.text).length} blocchi · aggiunto ${inDays(diffDays(x.added))}</div></div>
+    <button class="btn sm" data-act="viewdoc" data-id="${x.id}">Apri</button><button class="btn ghost sm" data-act="deldoc" data-id="${x.id}" aria-label="Elimina ${esc(x.name)}">${ic("trash")}</button></div>`).join("")
+    || `<div class="empty">${ic("doc")}Nessun documento in questa materia.</div>`}</div></div>`;
+}
+
+/* ===================== CARRIERA (università) ===================== */
+function careerStats() {
+  const voted = S.exams.filter(e => e.grade);
+  const cfuV = voted.reduce((a,e) => a + e.cfu, 0), sum = voted.reduce((a,e) => a + e.grade * e.cfu, 0);
+  const cfu = S.exams.reduce((a,e) => a + e.cfu, 0);
+  const w = cfuV ? sum / cfuV : 0, ar = voted.length ? voted.reduce((a,e) => a + e.grade, 0) / voted.length : 0;
+  return {voted, cfuV, sum, cfu, w, ar, base:w * 110 / 30, lodi:S.exams.filter(e => e.lode).length};
+}
+function vCarriera() {
+  if (isSup()) return vVoti();
+  const c = careerStats(), rest = Math.max(0, S.totalCfu - c.cfu);
+  const need = rest ? ((S.targetBase * 30 / 110) * (c.cfuV + rest) - c.sum) / rest : 0;
+  const simC = UI.simCfu || 6, simV = UI.simVoto || 27;
+  const nw = (c.sum + simV * simC) / (c.cfuV + simC);
+  const hist = [...c.voted].sort((a,b) => a.date.localeCompare(b.date)); let acc = 0, cf = 0;
+  const pts = hist.map(e => { acc += e.grade * e.cfu; cf += e.cfu; return {d:e.date, v:acc / cf, n:e.name}; });
+  return hero("Carriera", `Il tuo percorso, <em>in numeri.</em>`, "Voti e CFU del libretto, la media che ti serve per il voto di laurea che vuoi e quanto stai studiando davvero.") + `
+  <div class="row"><div class="tabs">${[["libretto","Libretto","award"],["progressi","Progressi","trend"]].map(([k,l,i]) => `<button data-ctab="${k}" aria-pressed="${UI.carTab === k}">${ic(i)}${l}</button>`).join("")}</div></div>
+  ${UI.carTab === "progressi" ? progressBlock() : `
+  <div class="grid g4 section">${stat("target","Media ponderata", nf(c.w), `aritmetica ${nf(c.ar)}`, true)}${stat("spark","Base di laurea", `${nf(c.base,1)}<small> /110</small>`, "su 110, senza i punti della tesi")}
+    ${stat("layers","CFU", c.cfu, `di ${S.totalCfu} · ne mancano ${rest}`)}${stat("quiz","Esami", S.exams.length, `${c.lodi} con lode`)}</div>
+  <div class="progress section"><i style="width:${c.cfu / S.totalCfu * 100}%"></i></div>
+  <div class="grid g-side section">
+    <div class="card" style="align-self:start"><div class="row" style="justify-content:space-between"><h3>${ic("quiz")}Esami superati</h3><button class="btn primary" data-act="addexam">${ic("plus")}Registra un esame</button></div>
+      <div class="list" style="margin-top:.4rem">${[...S.exams].sort((a,b) => b.date.localeCompare(a.date)).map(e => `<div class="li"><div class="body"><div class="t">${esc(e.name)}</div><div class="s">${e.cfu} CFU · ${shortDate(e.date)}</div></div>
+        <span class="chip ${e.grade ? (e.grade >= 27 ? "acc" : "") : "ok"}">${e.grade ? e.grade + (e.lode ? " e lode" : "") : "idoneo"}</span>
+        <button class="btn ghost sm" data-act="delexam" data-id="${e.id}" aria-label="Elimina ${esc(e.name)}">${ic("trash")}</button></div>`).join("")}</div></div>
+    <div class="stack">
+      <div class="card focus"><h3>${ic("target")}Obiettivo</h3><p class="lead">La media che ti serve negli esami che mancano per arrivare alla base di laurea che vuoi.</p>
+        <label class="field" style="margin-top:.9rem"><span>Base di laurea che vuoi raggiungere: <b style="color:var(--accent)" id="tgtOut">${S.targetBase}/110</b></span>
+        <input type="range" id="tgt" min="66" max="110" value="${S.targetBase}"></label>
+        <p style="margin-top:.8rem" id="tgtTxt">${targetText(need, rest)}</p>
+        <p class="muted small" style="margin-top:.6rem">Calcolo standard: media ponderata × 110 / 30. Alcuni atenei arrotondano o aggiungono bonus: controlla il regolamento del tuo corso.</p></div>
+      <div class="card"><h3>${ic("spark")}E se il prossimo esame…</h3>
+        <div class="grid g2" style="margin-top:.8rem"><label class="field"><span>CFU</span><input class="input" type="number" id="simCfu" min="1" max="30" value="${simC}"></label>
+        <label class="field"><span>Voto: <b id="simVOut" style="color:var(--accent)">${simV}</b></span><input type="range" id="simVoto" min="18" max="30" value="${simV}"></label></div>
+        <p style="margin-top:.8rem" id="simTxt">Media <b>${nf(nw)}</b> (${nw >= c.w ? "+" : "−"}${nf(Math.abs(nw - c.w))}) · base <b>${nf(nw * 110 / 30, 1)}</b>/110</p></div>
+      <div class="card"><h3>${ic("trend")}Andamento della media</h3>${lineChart(pts.map(p => p.v), pts.map(p => p.n), 24, 30)}</div>
+    </div></div>`}`;
+}
+function targetText(need, rest) {
+  if (!rest) return "Hai tutti i CFU: la base è quella del libretto.";
+  if (need > 30) return `Con i voti di adesso ${S.targetBase}/110 non è più raggiungibile neanche con il massimo nei ${rest} CFU che mancano. Prova un obiettivo più basso.`;
+  if (need < 18) return `Ci sei già: anche con 18 nei ${rest} CFU che mancano resti sopra ${S.targetBase}/110.`;
+  return `Ti serve una media di <b>${nf(need)}</b> nei ${rest} CFU che mancano.`;
+}
+function lineChart(vals, labels, min, max) {
+  if (vals.length < 2) return `<p class="muted" style="margin-top:.6rem">Servono almeno due esami con voto.</p>`;
+  const W = 460, H = 180, L = 30, R = 12, T = 14, B = 22;
+  const x = i => L + i * (W - L - R) / (vals.length - 1), y = v => T + (max - v) / (max - min) * (H - T - B);
+  const ticks = []; for (let v = min; v <= max; v += 2) ticks.push(v);
+  const d = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const area = `${d} L${x(vals.length - 1)},${H - B} L${x(0)},${H - B} Z`;
+  return `<div style="overflow-x:auto;margin-top:.6rem"><svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:280px" role="img" aria-label="Andamento della media">
+    ${ticks.map(v => `<line class="grid-l" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join("")}
+    <path d="${area}" fill="var(--accent-soft)" opacity=".7"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.2"/>
+    ${vals.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === vals.length - 1 ? 4.5 : 3}" fill="${i === vals.length - 1 ? "var(--accent)" : "var(--surface)"}" stroke="var(--accent)" stroke-width="1.8"><title>${esc(labels[i])}: ${nf(v)}</title></circle>`).join("")}</svg></div>`;
+}
+function progressBlock() {
+  const days = Array.from({length:14}, (_, i) => off(i - 13));
+  const mins = days.map(d => S.log.filter(x => x.date === d).reduce((a,x) => a + x.minutes, 0));
+  const max = Math.max(60, ...mins), tot = mins.reduce((a,b) => a + b, 0);
+  const bySub = {}; S.log.filter(x => diffDays(x.date) >= -13).forEach(x => bySub[x.subject] = (bySub[x.subject] || 0) + x.minutes);
+  const W = 560, H = 180, L = 8, B = 24, bw = (W - 2*L) / 14;
+  return `<div class="grid g3 section">${stat("clock","Ultime 2 settimane", hm(tot), `${mins.filter(Boolean).length} giorni di studio`, true)}${stat("flame","Media", hm(tot / 14), "al giorno")}
+    ${stat("target","Sessioni", S.log.filter(x => diffDays(x.date) >= -13).length, "registrate col cronometro")}</div>
+  <div class="grid g-side section"><div class="card"><h3>${ic("trend")}Minuti al giorno</h3><div style="overflow-x:auto;margin-top:.6rem">
+    <svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:300px" role="img" aria-label="Minuti di studio al giorno">
+    <line class="grid-l" x1="0" x2="${W}" y1="${H - B}" y2="${H - B}"/>
+    ${mins.map((m, i) => { const h = m / max * (H - B - 16); const dd = parseISO(days[i]);
+      return `<rect x="${L + i*bw + 4}" y="${H - B - h}" width="${bw - 8}" height="${Math.max(h, 0)}" rx="4" fill="${i === 13 ? "var(--accent)" : "var(--line-2)"}"><title>${longDate(days[i])}: ${hm(m)}</title></rect>
+      <text x="${L + i*bw + bw/2}" y="${H - 7}" text-anchor="middle">${dd.getDate()}</text>`; }).join("")}</svg></div></div>
+  <div class="card" style="align-self:start"><h3>${ic("layers")}Per materia</h3><div class="list" style="margin-top:.4rem">${Object.entries(bySub).sort((a,b) => b[1] - a[1]).map(([s, m]) =>
+    `<div class="li"><div class="body"><div class="row" style="justify-content:space-between"><b>${esc(s)}</b><span class="num small">${hm(m)}</span></div>
+    <div class="progress" style="margin-top:.35rem;height:6px"><i style="width:${m / tot * 100}%"></i></div></div></div>`).join("")}</div></div></div>`;
+}
+
+/* ===================== VOTI (superiori) ===================== */
+function gval(g) {
+  const s = String(g).trim(); let m;
+  if ((m = s.match(/^(\d+)\/(\d+)$/))) return (+m[1] + +m[2]) / 2;
+  if ((m = s.match(/^(\d+)½$/))) return +m[1] + .5;
+  if ((m = s.match(/^(\d+)\+$/))) return +m[1] + .25;
+  if ((m = s.match(/^(\d+)-$/))) return +m[1] - .25;
+  const n = parseFloat(s.replace(",", ".")); return isNaN(n) ? null : n;
+}
+function inPeriod(dateStr) {
+  const d = parseISO(dateStr), y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  const split = new Date(y + 1, 0, 31);
+  return UI.period === "all" ? true : UI.period === "1" ? d <= split : d > split;
+}
+function vVoti() {
+  const subs = subjNames();
+  const rows = subs.map(s => {
+    const gs = S.grades.filter(g => g.subject === s && inPeriod(g.date)); const vs = gs.map(g => gval(g.grade)).filter(v => v !== null);
+    const avg = vs.length ? vs.reduce((a,b) => a + b, 0) / vs.length : null;
+    const part = k => { const x = gs.filter(g => g.kind === k).map(g => gval(g.grade)); return x.length ? x.reduce((a,b) => a + b, 0) / x.length : null; };
+    const need = vs.length ? 6 * (vs.length + 1) - vs.reduce((a,b) => a + b, 0) : null;
+    return {s, gs, avg, scr:part("scritto"), ora:part("orale"), need};
+  });
+  const withAvg = rows.filter(r => r.avg !== null);
+  const gen = withAvg.length ? withAvg.reduce((a,r) => a + r.avg, 0) / withAvg.length : 0;
+  const bad = withAvg.filter(r => r.avg < 6).sort((a,b) => a.avg - b.avg);
+  const pag = r => Math.round(r.avg);
+  const pagAvg = withAvg.length ? withAvg.reduce((a,r) => a + pag(r), 0) / withAvg.length : 0;
+  const credit = bad.length ? null : pagAvg <= 6 ? "7–8" : pagAvg <= 7 ? "8–9" : pagAvg <= 8 ? "9–10" : pagAvg <= 9 ? "10–11" : "11–12";
+  const y = TODAY.getMonth() >= 8 ? TODAY.getFullYear() : TODAY.getFullYear() - 1;
+  const card = r => { const st = r.avg === null ? "" : r.avg < 6 ? "bad" : r.avg < 6.5 ? "limit" : "";
+    return `<div class="card gcard ${st}"><div class="row" style="justify-content:space-between"><b>${esc(r.s)}</b>${st === "bad" ? `<span class="small" style="color:var(--danger);font-weight:700">insufficiente</span>` : st === "limit" ? `<span class="small" style="color:var(--warn);font-weight:700">al limite</span>` : `<span class="muted small">${r.gs.length} voti</span>`}</div>
+      <div class="gv">${r.avg === null ? "—" : nf(r.avg)}</div>
+      ${r.avg === null ? `<p class="muted small">Ancora nessun voto in questo periodo.</p>` : `<p class="muted small">${[r.scr !== null && `scritto ${nf(r.scr)}`, r.ora !== null && `orale ${nf(r.ora)}`, `in pagella ${pag(r)}`].filter(Boolean).join(" · ")}</p>
+      <div class="row" style="gap:.35rem">${r.gs.map(g => `<span class="gpill">${esc(g.grade)}<small>${g.kind === "orale" ? "o" : "s"}</small></span>`).join("")}</div>
+      <p class="small" style="margin-top:.2rem">${r.avg < 6 ? `Per arrivare a 6 ti serve almeno <b>${nf(Math.min(10, r.need), 1)}</b> alla prossima.` : r.need <= 2 ? "Obiettivo 6: ci sei anche con il voto più basso alla prossima." : `Sei sopra l'obiettivo 6: ci resti anche con un <b>${nf(Math.max(1, r.need), 1)}</b> alla prossima.`}</p>`}
+      <button class="btn ghost sm" data-act="addgrade" data-sub="${esc(r.s)}" style="justify-self:start">${ic("plus")}Aggiungi voto</button></div>`; };
+  const order = [...rows].sort((a,b) => (a.avg ?? 99) - (b.avg ?? 99));
+  return hero("Voti", `I tuoi voti, <em>sotto controllo.</em>`, "Medie per materia, il voto che ti serve alla prossima verifica, la pagella e il credito scolastico.") + `
+  <div class="row" style="justify-content:space-between"><div class="row"><span class="chip">${y}/${String(y + 1).slice(2)}</span>
+    <div class="tabs">${[["all","Tutto l'anno"],["1","1° quadrimestre"],["2","2° quadrimestre"]].map(([k,l]) => `<button data-period="${k}" aria-pressed="${UI.period === k}">${l}</button>`).join("")}</div></div>
+    <button class="btn primary" data-act="addgrade">${ic("plus")}Nuovo voto</button></div>
+  <div class="row section"><div class="tabs">${[["materia","Per materia","spark"],["pagella","Pagella","doc"]].map(([k,l,i]) => `<button data-gtab="${k}" aria-pressed="${UI.gradeTab === k}">${ic(i)}${l}</button>`).join("")}</div></div>
+  <div class="grid g3 section">${stat("target","Media generale", withAvg.length ? nf(gen) : "—", "media delle materie", true)}${stat("quiz","Voti", rows.reduce((a,r) => a + r.gs.length, 0), "in questo periodo")}
+    ${stat("spark","Credito stimato", credit || "—", credit ? `punti per la ${esc(S.year)} (media in pagella ${nf(pagAvg)})` : "prima recupera le insufficienze")}</div>
+  ${bad.length ? `<div class="alert section">${ic("down")}<p><b>${esc(bad[0].s)} è sotto il 6.</b> Per arrivare a 6 ti serve almeno ${nf(Math.min(10, bad[0].need), 1)} alla prossima verifica.</p>
+    <button class="btn sm" data-act="planfor" data-sub="${esc(bad[0].s)}">Crea un piano</button></div>` : ""}
+  ${UI.gradeTab === "materia" ? `<div class="grid g3 section">${order.map(card).join("")}</div>`
+   : `<div class="card section"><div class="list">${rows.map(r => `<div class="li"><div class="body"><div class="t">${esc(r.s)}</div><div class="s">${r.avg === null ? "nessun voto" : `media ${nf(r.avg)}`}</div></div>
+     <span style="font-family:var(--f-head);font-size:1.6rem;font-weight:600;${r.avg !== null && pag(r) < 6 ? "color:var(--danger)" : ""}">${r.avg === null ? "—" : pag(r)}</span></div>`).join("")}</div></div>`}`;
+}
+
+/* ===================== IMPOSTAZIONI ===================== */
+function vImpostazioni() {
+  return hero("Impostazioni", `Fatta <em>a modo tuo.</em>`, "Nome, scuola, tema e tempo di studio. Nell'app vera qui scegli anche l'AI (Ollama sul tuo PC o Claude), i calendari collegati e le scorciatoie.") + `
+  <div class="grid g2">
+    <div class="card"><h3>${ic("school")}Profilo</h3><div class="stack" style="margin-top:.8rem">
+      <label class="field"><span>Nome</span><input class="input" id="pName" value="${esc(S.name)}" maxlength="30"></label>
+      <label class="field"><span>Scuola</span><select class="input" id="pLevel"><option value="uni" ${!isSup() ? "selected" : ""}>Università</option><option value="sup" ${isSup() ? "selected" : ""}>Scuola superiore</option></select></label>
+      <label class="field"><span>Minuti di studio al giorno</span><input class="input" type="number" id="pMin" min="30" max="600" step="15" value="${S.minutesPerDay}"></label></div></div>
+    <div class="card"><h3>${ic("sun")}Aspetto</h3><div class="field" style="margin-top:.8rem"><span>Tema</span>
+      <div class="tabs">${[["light","Giorno"],["dark","Notte"],["auto","Automatico"]].map(([k,l]) => `<button data-theme-pick="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join("")}</div></div>
+      <p class="muted small" style="margin-top:.8rem">Automatico segue il tema del computer.</p>
+      <h3 style="margin-top:1.4rem">${ic("refresh")}Demo</h3><p class="lead">Cancella le modifiche e riparti con i dati di esempio.</p>
+      <button class="btn danger" data-act="reset" style="margin-top:.7rem">${ic("refresh")}Ricomincia la demo</button></div>
+  </div>
+  <div class="card section"><h3>${ic("spark")}Nella versione completa</h3><ul class="feat" style="margin-top:.7rem">
+    ${["L'AI legge davvero PDF, Word, PowerPoint e foto di appunti (Ollama in locale, gratis, oppure Claude)","Notifiche per lezioni, esami e prenotazioni","Calendari collegati: Google Calendar, Apple, Outlook","Backup e ripristino in un clic, tutto salvato sul tuo PC","Scorciatoie da tastiera (Alt+1…9, Ctrl+K, Ctrl+B) e pannello rapido","Windows e Mac"].map(x => `<li>${ic("check")}<span>${x}</span></li>`).join("")}</ul>
+    <button class="btn primary" data-act="buy" style="margin-top:1rem">Acquista StudyRAG</button></div>`;
+}
+
+/* ===================== render ===================== */
+const VIEWS = {oggi:vOggi, piano:vPiano, quiz:vQuiz, mappe:vMappe, biblioteca:vBiblioteca, agenda:vAgenda, archivio:vArchivio, carriera:vCarriera, impostazioni:vImpostazioni};
+function render() {
+  if (!S.subjects[S.subject]) S.subject = subjNames()[0];
+  applyTheme(); renderTop(); renderSession();
+  document.getElementById("view").innerHTML = VIEWS[UI.view]();
+  document.title = `${pageLabel(UI.view)} · StudyRAG Demo`;
+}
+function renderSession() {
+  const s = UI.session, el = document.getElementById("sessbar");
+  if (!s) { el.innerHTML = ""; return; }
+  const sec = Math.floor((Date.now() - s.start) / 1000);
+  el.innerHTML = `<div class="sessbar" role="status">${ic("timer")}<span class="clock" id="sessClock">${fmtClock(sec)}</span>
+    <div class="body"><b>${esc(s.subject)}</b> · <span class="muted">${esc(s.title)}</span></div>
+    <button class="btn sm" data-act="sessend" data-done="0">Interrompi</button><button class="btn primary sm" data-act="sessend" data-done="1">${ic("check")}Fatto</button></div>`;
+}
+const fmtClock = s => `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor(s/60) % 60).padStart(2,"0")}:${String(s % 60).padStart(2,"0")}`;
+setInterval(() => {
+  if (UI.session) { const c = document.getElementById("sessClock"); if (c) c.textContent = fmtClock(Math.floor((Date.now() - UI.session.start) / 1000)); }
+  if (UI.sim && UI.view === "quiz" && UI.quizTab === "sim") { const c = document.getElementById("simClock");
+    const left = Math.max(0, Math.round((UI.sim.end - Date.now()) / 1000));
+    if (c) { if (left === 0) render(); else c.innerHTML = `${ic("timer")}${Math.floor(left/60)}:${String(left % 60).padStart(2,"0")}`; } }
+}, 1000);
+
+/* ===================== modali e messaggi ===================== */
+function modal(title, body, opts={}) {
+  document.getElementById("modalRoot").innerHTML = `<div class="overlay" data-act="mclose-bg"><div class="modal ${opts.wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <header><h2>${title}</h2><button class="iconbtn" data-act="mclose" aria-label="Chiudi">${ic("x")}</button></header>${body}</div></div>`;
+  const f = document.querySelector("#modalRoot input, #modalRoot select, #modalRoot textarea"); if (f) f.focus();
+}
+const closeModal = () => document.getElementById("modalRoot").innerHTML = "";
+let toastT;
+function toast(msg) { const r = document.getElementById("toastRoot"); r.innerHTML = `<div class="toast" role="status">${msg}</div>`; clearTimeout(toastT); toastT = setTimeout(() => r.innerHTML = "", 3200); }
+function fakeJob(label, ms, done) {
+  if (UI.job) return toast("C'è già un lavoro dell'AI in corso.");
+  UI.job = {label, p:4}; render();
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    const p = Math.min(100, (Date.now() - t0) / ms * 100); UI.job.p = p;
+    const b = document.getElementById("jobbar"); if (b) b.style.width = p + "%";
+    if (p >= 100) { clearInterval(tick); UI.job = null; done(); save(); render(); }
+  }, 120);
+}
+function buyModal() {
+  modal("Acquista StudyRAG", `<p>StudyRAG si installa sul tuo computer (Windows o Mac). I tuoi appunti restano sul tuo PC e l'AI può funzionare anche senza internet.</p>
+    <ul class="feat">${["Licenza personale con attivazione sul tuo computer","Aggiornamenti inclusi","Assistenza via email"].map(x => `<li>${ic("check")}<span>${x}</span></li>`).join("")}</ul>
+    ${BUY_URL ? `<a class="btn primary" href="${BUY_URL}" target="_blank" rel="noopener">Vai all'acquisto</a>` : `<p class="muted small">Per acquistarlo o per avere informazioni scrivi a:</p>`}
+    <div class="buy-box">${ic("mail")}<code id="mailTxt">${SUPPORT_EMAIL}</code><button class="btn sm" data-act="copymail">${ic("copy")}Copia</button></div>`);
+}
+
+/* ===================== ricerca rapida (Ctrl+K) ===================== */
+function paletteItems(q) {
+  const items = [];
+  const add = (label, sub, fn) => items.push({label, sub, fn});
+  Object.keys(PAGES).forEach(k => add(`Vai a ${pageLabel(k)}`, "sezione", () => go(k)));
+  subjNames().forEach(s => add(`Materia: ${s}`, "cambia materia", () => { S.subject = s; save(); render(); }));
+  S.events.forEach(e => add(e.title, `${kindName(e.kind)} · ${longDate(e.date)}`, () => { UI.week = Math.floor((diffDays(e.date) + wd(TODAY)) / 7); go("agenda"); }));
+  for (const [s, d] of Object.entries(S.subjects)) d.docs.forEach(x => add(x.name, `documento · ${s}`, () => { S.subject = s; go("archivio"); }));
+  S.books.forEach(b => add(b.title, "libro", () => go("biblioteca")));
+  add("Avvia una sessione di studio", "cronometro", () => startSession(S.subject, null));
+  add("Tema notte", "aspetto", () => { S.theme = "dark"; save(); render(); });
+  add("Tema giorno", "aspetto", () => { S.theme = "light"; save(); render(); });
+  const w = q.toLowerCase().trim();
+  return (w ? items.filter(i => (i.label + " " + i.sub).toLowerCase().includes(w)) : items).slice(0, 9);
+}
+let palSel = 0, palItems = [];
+function openPalette() {
+  modal("Cerca e vai", `<input class="input" id="palQ" placeholder="Sezioni, materie, eventi, documenti…" autocomplete="off"><div class="pal-list" id="palList"></div>
+    <p class="muted small"><span class="kbd">↑</span> <span class="kbd">↓</span> per scegliere, <span class="kbd">Invio</span> per aprire, <span class="kbd">Esc</span> per chiudere.</p>`);
+  drawPalette("");
+}
+function drawPalette(q) {
+  palItems = paletteItems(q); palSel = 0; paintPalette();
+}
+function paintPalette() {
+  const el = document.getElementById("palList"); if (!el) return;
+  el.innerHTML = palItems.map((it, i) => `<button class="${i === palSel ? "on" : ""}" data-pal="${i}">${ic("right")}<span>${esc(it.label)}</span><span class="s">${esc(it.sub)}</span></button>`).join("") || `<p class="muted" style="padding:.6rem">Niente da mostrare.</p>`;
+}
+
+/* ===================== azioni ===================== */
+function findTask(sub, id) { const p = S.subjects[sub]?.plan; if (!p) return null; for (const d of p.days) for (const t of d.tasks) if (t.id === id) return t; return null; }
+function startSession(subject, taskId) {
+  const t = taskId ? findTask(subject, taskId) : null;
+  UI.session = {subject, taskId, title:t ? t.title : "Studio libero", start:Date.now()};
+  render(); toast("Sessione avviata: il cronometro resta in cima a ogni sezione.");
+}
+function makePlan(subject, examIso, minutes) {
+  const d = S.subjects[subject]; const book = S.books.find(b => b.subject === subject);
+  d.plan = buildPlan(subject, Math.max(2, diffDays(examIso)), {doc:(d.docs[0] || {name:"Appunti"}).name, book:book && book.title}, book ? book.done + 1 : 1, 0);
+  if (minutes) S.minutesPerDay = minutes;
+}
+function genFromPool(kind) {
+  const d = cur(), s = S.subject;
+  if (kind === "quiz") {
+    const pool = POOL[s] || []; const used = new Set(d.quizzes.flatMap(q => q.qs.map(x => x.q)));
+    let qs = pool.filter(x => !used.has(x.q)).slice(0, 5); if (qs.length < 3) qs = [...pool].sort(() => Math.random() - .5).slice(0, 5);
+    if (!qs.length) return toast("Nella demo l'AI simulata ha domande pronte solo per alcune materie. Nell'app vera le scrive dai tuoi documenti.");
+    const docName = (document.getElementById("genDoc") || {}).value || (d.docs[0] || {}).name;
+    fakeJob(`Quiz di ${s}`, 2600, () => { d.quizzes.push({id:uid("q"), title:docName.replace(/\.[^.]+$/, "").replace(/_/g, " "), qs, best:0}); UI.qi = d.quizzes.length - 1; UI.qState = null; UI.quizTab = "quiz"; toast(`Quiz pronto: ${qs.length} domande.`); });
+  } else {
+    const have = new Set(d.cards.map(c => c.front)); const add = (CARDPOOL[s] || []).filter(([f]) => !have.has(f));
+    if (!add.length) return toast(CARDPOOL[s] ? "Hai già tutte le flashcard di esempio di questa materia." : "Nella demo l'AI simulata ha flashcard pronte solo per alcune materie.");
+    fakeJob(`Flashcard di ${s}`, 2200, () => { add.forEach(([f,b]) => d.cards.push({id:uid("c"), front:f, back:b, box:0, due:off(0)})); UI.quizTab = "flash"; UI.flipped = false; toast(`${add.length} flashcard aggiunte al mazzo.`); });
+  }
+}
+function lessonModal() {
+  modal("Nuova lezione", `<form id="fLesson" class="stack"><div class="grid g2"><label class="field"><span>Materia</span><select class="input" name="subject">${subjNames().map(s => `<option ${s === S.subject ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
+    <label class="field"><span>Giorno</span><select class="input" name="wd">${GIORNI.slice(0,6).map((g, i) => `<option value="${i}">${cap(g)}</option>`).join("")}</select></label>
+    <label class="field"><span>Inizio</span><input class="input" type="time" name="start" value="09:00" required></label><label class="field"><span>Fine</span><input class="input" type="time" name="end" value="11:00" required></label>
+    <label class="field"><span>Aula</span><input class="input" name="room" placeholder="Aula 5"></label><label class="field"><span>Docente</span><input class="input" name="teacher" placeholder="Prof. …"></label></div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="mclose">Annulla</button><button class="btn primary">Aggiungi</button></div></form>`);
+}
+function eventModal() {
+  modal("Nuovo evento", `<form id="fEvent" class="stack"><label class="field"><span>Titolo</span><input class="input" name="title" required placeholder="${isSup() ? "Verifica di fisica" : "Esame orale"}"></label>
+    <div class="grid g2"><label class="field"><span>Tipo</span><select class="input" name="kind">${["esame","scadenza","ricevimento"].map(k => `<option value="${k}">${kindName(k)}</option>`).join("")}</select></label>
+    <label class="field"><span>Materia</span><select class="input" name="subject"><option value="">—</option>${subjNames().map(s => `<option ${s === S.subject ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
+    <label class="field"><span>Data</span><input class="input" type="date" name="date" value="${off(7)}" required></label><label class="field"><span>Ora</span><input class="input" type="time" name="start"></label></div>
+    <label class="field"><span>Luogo</span><input class="input" name="place"></label>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="mclose">Annulla</button><button class="btn primary">Aggiungi</button></div></form>`);
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act],[data-go],[data-level],[data-qtab],[data-mtab],[data-agtab],[data-ctab],[data-gtab],[data-period],[data-theme-pick],[data-node],[data-lesson],[data-event],[data-pal]");
+  if (!t) return;
+  if (t.dataset.go) { if (t.dataset.sub && S.subjects[t.dataset.sub]) S.subject = t.dataset.sub; return go(t.dataset.go); }
+  if (t.dataset.level) { if (S.level !== t.dataset.level) { S = fresh(t.dataset.level); save(); UI.qState = null; UI.sim = null; UI.mapIdx = 0; UI.qi = 0; go(UI.view); toast(t.dataset.level === "sup" ? "Profilo superiori: Marco, 3ª liceo scientifico." : "Profilo università: Sofia, Ingegneria energetica."); } return; }
+  if (t.dataset.qtab) { UI.quizTab = t.dataset.qtab; UI.flipped = false; return render(); }
+  if (t.dataset.mtab) { UI.mapTab = t.dataset.mtab; return render(); }
+  if (t.dataset.agtab) { UI.agTab = t.dataset.agtab; return render(); }
+  if (t.dataset.ctab) { UI.carTab = t.dataset.ctab; return render(); }
+  if (t.dataset.gtab) { UI.gradeTab = t.dataset.gtab; return render(); }
+  if (t.dataset.period) { UI.period = t.dataset.period; return render(); }
+  if (t.dataset.themePick) { S.theme = t.dataset.themePick; save(); return render(); }
+  if (t.dataset.node) { UI.mapSel = UI.mapSel === t.dataset.node ? null : t.dataset.node; return render(); }
+  if (t.dataset.pal !== undefined) { const it = palItems[+t.dataset.pal]; closeModal(); return it && it.fn(); }
+  if (t.dataset.lesson) { const l = S.lessons.find(x => x.id === t.dataset.lesson); return modal(esc(l.subject), `<p><b>${cap(GIORNI[l.wd])}</b>, ${l.start}–${l.end}</p><p class="muted">${esc([l.room, l.teacher].filter(Boolean).join(" · ") || "Nessuna aula indicata")}</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn danger" data-act="dellesson" data-id="${l.id}">${ic("trash")}Elimina dall'orario</button><button class="btn primary" data-act="mclose">Chiudi</button></div>`); }
+  if (t.dataset.event) { const ev = S.events.find(x => x.id === t.dataset.event); return modal(esc(ev.title), `<p><b>${cap(longDate(ev.date))}</b>${ev.start ? `, ${ev.start}${ev.end ? "–" + ev.end : ""}` : ""} · ${inDays(diffDays(ev.date))}</p>
+    <p class="muted">${esc([kindName(ev.kind), ev.subject, ev.place].filter(Boolean).join(" · "))}</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn danger" data-act="delevent" data-id="${ev.id}">${ic("trash")}Elimina</button><button class="btn primary" data-act="mclose">Chiudi</button></div>`); }
+  const a = t.dataset.act, d = cur();
+  switch (a) {
+    case "mclose-bg": if (e.target === t) closeModal(); break;
+    case "mclose": closeModal(); break;
+    case "buy": buyModal(); break;
+    case "copymail": { const done = () => toast("Indirizzo copiato."); try { navigator.clipboard.writeText(SUPPORT_EMAIL).then(done, () => selectText("mailTxt")); } catch (_) { selectText("mailTxt"); } break; }
+    case "palette": openPalette(); break;
+    case "session": e.preventDefault(); e.stopPropagation(); startSession(t.dataset.sub, t.dataset.task); break;
+    case "sessend": { const s = UI.session; const mins = Math.max(1, Math.round((Date.now() - s.start) / 60000));
+      S.log.push({date:iso(TODAY), minutes:mins, subject:s.subject});
+      if (t.dataset.done === "1" && s.taskId) { const tk = findTask(s.subject, s.taskId); if (tk) tk.done = true; }
+      UI.session = null; save(); render(); toast(`Sessione registrata: ${hm(mins)} di ${esc(s.subject)}.`); break; }
+    case "mkplan": { const dt = document.getElementById("planDate").value; if (!dt || diffDays(dt) < 2) return toast("Scegli una data almeno tra due giorni.");
+      fakeJob(`Piano di ${S.subject}`, 1800, () => { makePlan(S.subject, dt, +document.getElementById("planMin").value);
+        if (!S.events.some(x => x.subject === S.subject && x.kind === "esame")) S.events.push({id:uid("e"), title:isSup() ? `Verifica di ${S.subject.toLowerCase()}` : `Esame di ${S.subject}`, date:dt, kind:"esame", subject:S.subject, start:"09:00", end:"", place:""});
+        toast("Piano creato e aggiunto all'agenda."); }); break; }
+    case "replan": { const p = d.plan; const left = p.days.filter(x => diffDays(x.date) >= 0).flatMap(x => x.tasks).filter(x => !x.done).length;
+      makePlan(S.subject, p.exam); save(); render(); toast(`Piano ridistribuito da oggi (${left} attività ancora da fare).`); break; }
+    case "delplan": modal("Eliminare il piano?", `<p>Il piano di ${esc(S.subject)} viene cancellato. Puoi crearne uno nuovo quando vuoi.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="mclose">Annulla</button><button class="btn danger" data-act="delplanok">${ic("trash")}Elimina</button></div>`); break;
+    case "delplanok": d.plan = null; closeModal(); save(); render(); break;
+    case "planfor": S.subject = t.dataset.sub; go("piano"); break;
+    case "genquiz": genFromPool(document.getElementById("genKind").value); break;
+    case "qans": { const st = UI.qState, q = d.quizzes[UI.qi].qs[st.i]; st.pick = +t.dataset.j; if (st.pick === q.a) st.score++; render(); break; }
+    case "qnext": { const st = UI.qState, qz = d.quizzes[UI.qi]; st.i++; st.pick = null; if (st.i >= qz.qs.length && st.score > qz.best) { qz.best = st.score; st.newBest = true; save(); } render(); break; }
+    case "qrestart": UI.qState = null; render(); break;
+    case "flip": UI.flipped = !UI.flipped; render(); break;
+    case "cardyes": case "cardno": { const c = d.cards.find(x => x.id === t.dataset.id);
+      if (a === "cardyes") { c.box = Math.min(4, c.box + 1); c.due = off([1,2,4,7,14][c.box]); } else { c.box = 0; c.due = off(1); }
+      UI.flipped = false; save(); render(); break; }
+    case "cardsall": d.cards.forEach(c => c.due = off(0)); save(); render(); break;
+    case "simstart": { const all = [...d.quizzes.flatMap(q => q.qs)].sort(() => Math.random() - .5);
+      UI.sim = {sub:S.subject, qs:all, i:0, pick:null, score:0, end:Date.now() + +document.getElementById("simMin").value * 60000}; render(); break; }
+    case "simans": { const q = UI.sim.qs[UI.sim.i]; UI.sim.pick = +t.dataset.j; if (UI.sim.pick === q.a) UI.sim.score++; render(); break; }
+    case "simnext": UI.sim.i++; UI.sim.pick = null; render(); break;
+    case "simreset": UI.sim = null; render(); break;
+    case "genmap": { const pool = MAPPOOL[S.subject];
+      if (!d.docs.length) return toast("Carica prima un documento in Archivio.");
+      if (!pool) return toast("Nella demo l'AI simulata ha mappe pronte solo per alcune materie. Nell'app vera la crea da qualsiasi documento.");
+      if (d.maps.some(m => m.titolo === pool.titolo)) return toast("Questa mappa di esempio c'è già. Nell'app vera puoi crearne quante vuoi, anche su un argomento.");
+      fakeJob(`Mappa di ${S.subject}`, 2800, () => { d.maps.push({id:uid("m"), ...pool, source:d.docs[0].name, created:off(0)}); UI.mapIdx = d.maps.length - 1; toast(`Mappa pronta: ${pool.nodi.length} concetti.`); }); break; }
+    case "readpages": { const b = S.books.find(x => x.id === t.dataset.id); const n = +document.getElementById("pg-" + b.id).value;
+      if (!n || n < 1) return toast("Scrivi quante pagine hai letto.");
+      b.done = Math.min(b.pages, b.done + n); save(); render(); toast(`${esc(b.title)}: pagina ${b.done} di ${b.pages}.`); break; }
+    case "addbook": modal("Aggiungi un libro", `<form id="fBook" class="stack"><label class="field"><span>Titolo</span><input class="input" name="title" required></label>
+      <div class="grid g2"><label class="field"><span>Autore</span><input class="input" name="author"></label><label class="field"><span>Pagine</span><input class="input" type="number" name="pages" min="1" value="300" required></label></div>
+      <label class="field"><span>Materia</span><select class="input" name="subject">${subjNames().map(s => `<option ${s === S.subject ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="mclose">Annulla</button><button class="btn primary">Aggiungi</button></div></form>`); break;
+    case "wk": UI.week = t.dataset.d === "0" ? 0 : UI.week + +t.dataset.d; render(); break;
+    case "addlesson": lessonModal(); break;
+    case "addevent": eventModal(); break;
+    case "delevent": S.events = S.events.filter(x => x.id !== t.dataset.id); closeModal(); save(); render(); toast("Evento eliminato."); break;
+    case "dellesson": S.lessons = S.lessons.filter(x => x.id !== t.dataset.id); closeModal(); save(); render(); toast("Lezione tolta dall'orario."); break;
+    case "try": UI.search = t.dataset.q; render(); break;
+    case "viewdoc": { const x = d.docs.find(y => y.id === t.dataset.id); modal(esc(x.name), `<div class="doc-text">${esc(x.text)}</div>`, {wide:true}); break; }
+    case "deldoc": d.docs = d.docs.filter(x => x.id !== t.dataset.id); save(); render(); toast("Documento eliminato."); break;
+    case "addexam": modal("Registra un esame", `<form id="fExam" class="stack"><label class="field"><span>Esame</span><input class="input" name="name" required placeholder="Fisica 2"></label>
+      <div class="grid g2"><label class="field"><span>CFU</span><input class="input" type="number" name="cfu" min="1" max="30" value="6" required></label>
+      <label class="field"><span>Voto</span><select class="input" name="grade">${Array.from({length:13}, (_, i) => 30 - i).map(v => `<option>${v}</option>`).join("")}<option value="L">30 e lode</option><option value="I">Idoneità</option></select></label></div>
+      <label class="field"><span>Data</span><input class="input" type="date" name="date" value="${off(0)}" required></label>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="mclose">Annulla</button><button class="btn primary">Registra</button></div></form>`); break;
+    case "delexam": S.exams = S.exams.filter(x => x.id !== t.dataset.id); save(); render(); break;
+    case "addgrade": modal("Nuovo voto", `<form id="fGrade" class="stack"><div class="grid g2"><label class="field"><span>Materia</span><select class="input" name="subject">${subjNames().map(s => `<option ${s === (t.dataset.sub || S.subject) ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
+      <label class="field"><span>Voto</span><input class="input" name="grade" required placeholder="7, 6½, 7+, 6/7"></label>
+      <label class="field"><span>Tipo</span><select class="input" name="kind"><option value="scritto">Scritto</option><option value="orale">Orale</option></select></label>
+      <label class="field"><span>Data</span><input class="input" type="date" name="date" value="${off(0)}" required></label></div>
+      <p class="muted small">Si scrivono come sul registro: 7½ o 7.5, 7+, 7-, 6/7.</p>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="mclose">Annulla</button><button class="btn primary">Aggiungi</button></div></form>`); break;
+    case "reset": S = fresh(S.level); save(); UI.qState = null; UI.sim = null; UI.session = null; render(); toast("Demo ricominciata."); break;
+  }
+});
+function selectText(id) { const el = document.getElementById(id); if (!el) return; const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Indirizzo selezionato: copialo con Ctrl+C."); }
+
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.matches("input[type=checkbox][data-task]")) { const tk = findTask(t.dataset.sub, t.dataset.task); if (tk) { tk.done = t.checked; save(); render(); if (t.checked) toast("Attività completata."); } return; }
+  switch (t.id) {
+    case "subjPick": S.subject = t.value; UI.qi = 0; UI.mapIdx = 0; UI.qState = null; UI.mapSel = null; save(); render(); break;
+    case "allDays": UI.allDays = t.checked; render(); break;
+    case "showPast": UI.showPast = t.checked; render(); break;
+    case "qPick": UI.qi = +t.value; UI.qState = null; render(); break;
+    case "mapPick": UI.mapIdx = +t.value; UI.mapSel = null; render(); break;
+    case "pName": S.name = t.value.trim() || S.name; save(); toast("Nome salvato."); break;
+    case "pLevel": if (t.value !== S.level) { const th = S.theme; S = fresh(t.value); S.theme = th; save(); render(); toast("Profilo cambiato: dati di esempio della scuola scelta."); } break;
+    case "pMin": S.minutesPerDay = Math.max(30, +t.value || 120); save(); toast("Tempo di studio salvato."); break;
+    case "fileIn": addFiles(t.files); t.value = ""; break;
+  }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "searchBox") { UI.search = t.value; clearTimeout(t._d); t._d = setTimeout(() => { const pos = t.selectionStart; render(); const n = document.getElementById("searchBox"); n.focus(); n.setSelectionRange(pos, pos); }, 220); }
+  if (t.id === "palQ") drawPalette(t.value);
+  if (t.id === "tgt") { S.targetBase = +t.value; const c = careerStats(), rest = Math.max(0, S.totalCfu - c.cfu);
+    const need = rest ? ((S.targetBase * 30 / 110) * (c.cfuV + rest) - c.sum) / rest : 0;
+    document.getElementById("tgtOut").textContent = `${S.targetBase}/110`; document.getElementById("tgtTxt").innerHTML = targetText(need, rest); save(); }
+  if (t.id === "simCfu" || t.id === "simVoto") { UI.simCfu = Math.max(1, +document.getElementById("simCfu").value || 1); UI.simVoto = +document.getElementById("simVoto").value;
+    const c = careerStats(), nw = (c.sum + UI.simVoto * UI.simCfu) / (c.cfuV + UI.simCfu);
+    document.getElementById("simVOut").textContent = UI.simVoto;
+    document.getElementById("simTxt").innerHTML = `Media <b>${nf(nw)}</b> (${nw >= c.w ? "+" : "−"}${nf(Math.abs(nw - c.w))}) · base <b>${nf(nw * 110 / 30, 1)}</b>/110`; }
+});
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  const f = e.target, v = Object.fromEntries(new FormData(f));
+  if (f.id === "fLesson") { if (v.end <= v.start) return toast("La fine deve essere dopo l'inizio.");
+    S.lessons.push({id:uid("l"), subject:v.subject, wd:+v.wd, start:v.start, end:v.end, room:v.room.trim(), teacher:v.teacher.trim()}); toast("Lezione aggiunta all'orario."); }
+  if (f.id === "fEvent") { S.events.push({id:uid("e"), title:v.title.trim(), kind:v.kind, subject:v.subject, date:v.date, start:v.start, end:"", place:v.place.trim()}); toast("Evento aggiunto."); }
+  if (f.id === "fBook") { S.books.push({id:uid("b"), title:v.title.trim(), author:v.author.trim(), pages:+v.pages, done:0, subject:v.subject}); toast("Libro aggiunto."); }
+  if (f.id === "fExam") { S.exams.push({id:uid("x"), name:v.name.trim(), cfu:+v.cfu, grade:v.grade === "I" ? null : v.grade === "L" ? 30 : +v.grade, lode:v.grade === "L", date:v.date}); toast("Esame registrato nel libretto."); }
+  if (f.id === "fGrade") { if (gval(v.grade) === null || gval(v.grade) < 1 || gval(v.grade) > 10) return toast("Scrivi un voto da 1 a 10, ad esempio 6½ o 7+.");
+    S.grades.push({id:uid("g"), subject:v.subject, grade:v.grade.trim().replace(/^(\d+)\.5$/, "$1½"), kind:v.kind, date:v.date}); toast("Voto aggiunto."); }
+  closeModal(); save(); render();
+});
+function addFiles(files) {
+  const d = cur(); const list = [...files]; if (!list.length) return;
+  let n = 0;
+  list.forEach(file => {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const textual = ["txt","md","html","htm","csv"].includes(ext);
+    const finish = text => { d.docs.push({id:uid("d"), name:file.name, ext, size:file.size, added:off(0), text}); if (++n === list.length) fakeJob(`Indicizzo ${list.length === 1 ? file.name : list.length + " file"}`, 1600, () => toast(`${list.length === 1 ? "Documento pronto" : list.length + " documenti pronti"}: cercali qui sopra.`)); };
+    if (textual && file.size < 2e6) { const r = new FileReader(); r.onload = () => { let t = String(r.result); if (ext.startsWith("htm")) { const doc = new DOMParser().parseFromString(t, "text/html"); t = (doc.body ? doc.body.innerText || doc.body.textContent : t); } finish(t.trim() || "(file vuoto)"); }; r.onerror = () => finish("(non leggibile)"); r.readAsText(file); }
+    else finish(`${file.name}\n\nNella demo il contenuto di questo tipo di file non viene letto. Nell'app installata StudyRAG estrae il testo da PDF, Word, PowerPoint, tabelle e immagini (anche appunti scritti a mano) e lo rende ricercabile.`);
+  });
+}
+document.addEventListener("dragover", e => { const dz = e.target.closest && e.target.closest("#drop"); if (dz) { e.preventDefault(); dz.classList.add("over"); } });
+document.addEventListener("dragleave", e => { const dz = e.target.closest && e.target.closest("#drop"); if (dz) dz.classList.remove("over"); });
+document.addEventListener("drop", e => { const dz = e.target.closest && e.target.closest("#drop"); if (dz) { e.preventDefault(); dz.classList.remove("over"); addFiles(e.dataTransfer.files); } });
+
+document.addEventListener("keydown", e => {
+  const inPal = document.getElementById("palQ");
+  if (e.key === "Escape" && document.getElementById("modalRoot").innerHTML) { closeModal(); return; }
+  if (inPal && document.activeElement === inPal) {
+    if (e.key === "ArrowDown") { palSel = Math.min(palItems.length - 1, palSel + 1); paintPalette(); e.preventDefault(); }
+    if (e.key === "ArrowUp") { palSel = Math.max(0, palSel - 1); paintPalette(); e.preventDefault(); }
+    if (e.key === "Enter") { const it = palItems[palSel]; closeModal(); if (it) it.fn(); e.preventDefault(); }
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (e.altKey && !typing && /^[1-9]$/.test(e.key)) {
+    e.preventDefault(); go(["oggi", UI.study, "agenda", "archivio", "carriera", "piano", "quiz", "mappe", "biblioteca"][+e.key - 1]);
+  }
+  if ((e.key === "Enter" || e.key === " ") && document.activeElement.matches && document.activeElement.matches("[data-node],.flash")) { e.preventDefault(); document.activeElement.click(); }
+});
+
+/* ===================== avvio ===================== */
+UI.view = PAGES[location.hash.slice(1)] ? location.hash.slice(1) : "oggi";
+if (STUDY.includes(UI.view)) UI.study = UI.view;
+render();
+</script>
+</body>
+</html>
